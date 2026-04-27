@@ -286,6 +286,7 @@ export function HomeScreen({ userName = "User", onLogout }: HomeScreenProps) {
           onSendMessage={handleSendMessage}
           placeholder="Ask me anything..."
           mascotImage="/images/login-mascot.webp"
+          className="h-80"
         />
       </main>
 
