@@ -1,82 +1,103 @@
-import { useMemo, useState } from "react"
-import { ArrowLeft, ChevronLeft, ChevronRight, Dumbbell, Moon, Check } from "lucide-react"
+import {
+  ArrowLeft,
+  Check,
+  ChevronLeft,
+  ChevronRight,
+  Dumbbell,
+  Moon,
+} from "lucide-react";
+import { useMemo, useState } from "react";
 
 interface TrainingDay {
-  date: string // YYYY-MM-DD
-  type: "workout" | "rest" | "completed"
-  title?: string
-  description?: string
-  duration?: string
+  date: string; // YYYY-MM-DD
+  type: "workout" | "rest" | "completed";
+  title?: string;
+  description?: string;
+  duration?: string;
 }
 
 interface FullCalendarProps {
-  onBack: () => void
-  onSelectDate: (date: Date) => void
-  trainingData: TrainingDay[]
+  onBack: () => void;
+  onSelectDate: (date: Date) => void;
+  trainingData: TrainingDay[];
 }
 
-export function FullCalendar({ onBack, onSelectDate, trainingData }: FullCalendarProps) {
-  const [currentMonth, setCurrentMonth] = useState(new Date())
+export function FullCalendar({
+  onBack,
+  onSelectDate,
+  trainingData,
+}: FullCalendarProps) {
+  const [currentMonth, setCurrentMonth] = useState(new Date());
 
   const calendarDays = useMemo(() => {
-    const year = currentMonth.getFullYear()
-    const month = currentMonth.getMonth()
-    
-    const firstDay = new Date(year, month, 1)
-    const lastDay = new Date(year, month + 1, 0)
-    
-    const days: (Date | null)[] = []
-    
+    const year = currentMonth.getFullYear();
+    const month = currentMonth.getMonth();
+
+    const firstDay = new Date(year, month, 1);
+    const lastDay = new Date(year, month + 1, 0);
+
+    const days: (Date | null)[] = [];
+
     // Add empty cells for days before the first day of the month
-    const startDay = firstDay.getDay()
-    const mondayOffset = startDay === 0 ? 6 : startDay - 1
+    const startDay = firstDay.getDay();
+    const mondayOffset = startDay === 0 ? 6 : startDay - 1;
     for (let i = 0; i < mondayOffset; i++) {
-      days.push(null)
+      days.push(null);
     }
-    
+
     // Add all days of the month
     for (let i = 1; i <= lastDay.getDate(); i++) {
-      days.push(new Date(year, month, i))
+      days.push(new Date(year, month, i));
     }
-    
-    return days
-  }, [currentMonth])
+
+    return days;
+  }, [currentMonth]);
 
   const formatDateKey = (date: Date) => {
-    return date.toISOString().split("T")[0]
-  }
+    return date.toISOString().split("T")[0];
+  };
 
   const getTrainingForDate = (date: Date): TrainingDay | undefined => {
-    return trainingData.find((t) => t.date === formatDateKey(date))
-  }
+    return trainingData.find((t) => t.date === formatDateKey(date));
+  };
 
   const isToday = (date: Date) => {
-    const today = new Date()
+    const today = new Date();
     return (
       date.getDate() === today.getDate() &&
       date.getMonth() === today.getMonth() &&
       date.getFullYear() === today.getFullYear()
-    )
-  }
+    );
+  };
 
   const isPast = (date: Date) => {
-    const today = new Date()
-    today.setHours(0, 0, 0, 0)
-    return date < today
-  }
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    return date < today;
+  };
 
   const monthNames = [
-    "January", "February", "March", "April", "May", "June",
-    "July", "August", "September", "October", "November", "December"
-  ]
+    "January",
+    "February",
+    "March",
+    "April",
+    "May",
+    "June",
+    "July",
+    "August",
+    "September",
+    "October",
+    "November",
+    "December",
+  ];
 
   const navigateMonth = (direction: number) => {
     setCurrentMonth((prev) => {
-      const newDate = new Date(prev)
-      newDate.setMonth(prev.getMonth() + direction)
-      return newDate
-    })
-  }
+      const newDate = new Date(prev);
+      newDate.setMonth(prev.getMonth() + direction);
+      return newDate;
+    });
+  };
 
   return (
     <div className="min-h-screen bg-background flex flex-col">
@@ -128,12 +149,12 @@ export function FullCalendar({ onBack, onSelectDate, trainingData }: FullCalenda
         <div className="grid grid-cols-7 gap-1">
           {calendarDays.map((date, index) => {
             if (!date) {
-              return <div key={`empty-${index}`} className="aspect-square" />
+              return <div key={`empty-${index}`} className="aspect-square" />;
             }
 
-            const training = getTrainingForDate(date)
-            const today = isToday(date)
-            const past = isPast(date)
+            const training = getTrainingForDate(date);
+            const today = isToday(date);
+            const past = isPast(date);
 
             return (
               <button
@@ -145,10 +166,12 @@ export function FullCalendar({ onBack, onSelectDate, trainingData }: FullCalenda
                     : "bg-card hover:bg-secondary"
                 }`}
               >
-                <span className={`text-sm font-medium ${past && !today ? "text-muted-foreground" : ""}`}>
+                <span
+                  className={`text-sm font-medium ${past && !today ? "text-muted-foreground" : ""}`}
+                >
                   {date.getDate()}
                 </span>
-                
+
                 {/* Training indicator */}
                 {training && (
                   <div className="absolute bottom-1">
@@ -164,7 +187,7 @@ export function FullCalendar({ onBack, onSelectDate, trainingData }: FullCalenda
                   </div>
                 )}
               </button>
-            )
+            );
           })}
         </div>
 
@@ -187,5 +210,5 @@ export function FullCalendar({ onBack, onSelectDate, trainingData }: FullCalenda
         </div>
       </div>
     </div>
-  )
+  );
 }

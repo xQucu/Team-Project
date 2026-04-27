@@ -1,23 +1,23 @@
-import { useState, useRef, useEffect } from "react"
-import { Send } from "lucide-react"
-import { Button } from "@/components/ui/button"
-import { Input } from "@/components/ui/input"
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Send } from "lucide-react";
+import { useEffect, useRef, useState } from "react";
 
 export interface Message {
-  id: string
-  content: string
-  sender: "user" | "assistant"
-  timestamp: Date
+  id: string;
+  content: string;
+  sender: "user" | "assistant";
+  timestamp: Date;
 }
 
 interface ChatInterfaceProps {
-  messages: Message[]
-  onSendMessage: (message: string) => void
-  placeholder?: string
-  mascotImage?: string
-  title?: string
-  disabled?: boolean
-  className?: string
+  messages: Message[];
+  onSendMessage: (message: string) => void;
+  placeholder?: string;
+  mascotImage?: string;
+  title?: string;
+  disabled?: boolean;
+  className?: string;
 }
 
 export function ChatInterface({
@@ -29,35 +29,35 @@ export function ChatInterface({
   disabled = false,
   className = "",
 }: ChatInterfaceProps) {
-  const [inputValue, setInputValue] = useState("")
-  const messagesEndRef = useRef<HTMLDivElement>(null)
-  const inputRef = useRef<HTMLInputElement>(null)
+  const [inputValue, setInputValue] = useState("");
+  const messagesEndRef = useRef<HTMLDivElement>(null);
+  const inputRef = useRef<HTMLInputElement>(null);
 
   const scrollToBottom = () => {
-    messagesEndRef.current?.scrollIntoView({ behavior: "smooth" })
-  }
+    messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
+  };
 
   useEffect(() => {
-    scrollToBottom()
-  }, [messages])
+    scrollToBottom();
+  }, [messages]);
 
   // Focus input when it becomes enabled
   useEffect(() => {
     if (!disabled) {
-      inputRef.current?.focus()
+      inputRef.current?.focus();
     }
-  }, [disabled])
+  }, [disabled]);
 
   const handleSubmit = (e: React.FormEvent) => {
-    e.preventDefault()
+    e.preventDefault();
     if (inputValue.trim() && !disabled) {
-      onSendMessage(inputValue.trim())
-      setInputValue("")
+      onSendMessage(inputValue.trim());
+      setInputValue("");
       // Focus will be regained via the useEffect when disabled becomes false again
       // but let's also focus it here just in case
-      inputRef.current?.focus()
+      inputRef.current?.focus();
     }
-  }
+  };
 
   return (
     <div className={`flex flex-col bg-card rounded-xl ${className}`}>
@@ -120,5 +120,5 @@ export function ChatInterface({
         </div>
       </form>
     </div>
-  )
+  );
 }

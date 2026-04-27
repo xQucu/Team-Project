@@ -1,46 +1,46 @@
-import { useState } from "react"
-import { Eye, EyeOff, Mail, Lock, User, ArrowLeft } from "lucide-react"
-import { Button } from "@/components/ui/button"
-import { Input } from "@/components/ui/input"
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { ArrowLeft, Eye, EyeOff, Lock, Mail, User } from "lucide-react";
+import { useState } from "react";
 
 interface SignupScreenProps {
-  onSignup: (name: string, email: string, password: string) => void
-  onBack: () => void
+  onSignup: (name: string, email: string, password: string) => void;
+  onBack: () => void;
 }
 
 export function SignupScreen({ onSignup, onBack }: SignupScreenProps) {
-  const [name, setName] = useState("")
-  const [email, setEmail] = useState("")
-  const [password, setPassword] = useState("")
-  const [confirmPassword, setConfirmPassword] = useState("")
-  const [showPassword, setShowPassword] = useState(false)
-  const [isLoading, setIsLoading] = useState(false)
-  const [error, setError] = useState("")
+  const [name, setName] = useState("");
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+  const [confirmPassword, setConfirmPassword] = useState("");
+  const [showPassword, setShowPassword] = useState(false);
+  const [isLoading, setIsLoading] = useState(false);
+  const [error, setError] = useState("");
 
   const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault()
-    setError("")
+    e.preventDefault();
+    setError("");
 
     if (!name || !email || !password || !confirmPassword) {
-      setError("Please fill in all fields")
-      return
+      setError("Please fill in all fields");
+      return;
     }
 
     if (password !== confirmPassword) {
-      setError("Passwords do not match")
-      return
+      setError("Passwords do not match");
+      return;
     }
 
     if (password.length < 6) {
-      setError("Password must be at least 6 characters")
-      return
+      setError("Password must be at least 6 characters");
+      return;
     }
 
-    setIsLoading(true)
-    await new Promise((resolve) => setTimeout(resolve, 800))
-    setIsLoading(false)
-    onSignup(name, email, password)
-  }
+    setIsLoading(true);
+    await new Promise((resolve) => setTimeout(resolve, 800));
+    setIsLoading(false);
+    onSignup(name, email, password);
+  };
 
   return (
     <div className="min-h-screen bg-background flex flex-col p-6">
@@ -62,7 +62,9 @@ export function SignupScreen({ onSignup, onBack }: SignupScreenProps) {
             className="w-28 h-28 object-contain mb-4"
           />
           <h1 className="text-2xl font-bold text-foreground">Create Account</h1>
-          <p className="text-muted-foreground text-sm mt-1">Join CheetahFit today</p>
+          <p className="text-muted-foreground text-sm mt-1">
+            Join CheetahFit today
+          </p>
         </div>
 
         {/* Signup form */}
@@ -109,7 +111,11 @@ export function SignupScreen({ onSignup, onBack }: SignupScreenProps) {
               onClick={() => setShowPassword(!showPassword)}
               className="absolute right-4 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
             >
-              {showPassword ? <EyeOff className="h-5 w-5" /> : <Eye className="h-5 w-5" />}
+              {showPassword ? (
+                <EyeOff className="h-5 w-5" />
+              ) : (
+                <Eye className="h-5 w-5" />
+              )}
             </button>
           </div>
 
@@ -139,5 +145,5 @@ export function SignupScreen({ onSignup, onBack }: SignupScreenProps) {
         </p>
       </div>
     </div>
-  )
+  );
 }

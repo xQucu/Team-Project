@@ -1,38 +1,39 @@
-import { useState, useMemo } from "react"
-import { Menu, X, LogOut, Settings, User } from "lucide-react"
-import { TwoWeekCalendar } from "@/components/two-week-calendar"
-import { TrainingCard } from "@/components/training-card"
-import { ChatInterface, Message } from "@/components/chat-interface"
-import { FullCalendar } from "@/components/full-calendar"
-import { LiveSession } from "@/components/live-session"
+import { ChatInterface, Message } from "@/components/chat-interface";
+import { FullCalendar } from "@/components/full-calendar";
+import { LiveSession } from "@/components/live-session";
+import { TrainingCard } from "@/components/training-card";
+import { TwoWeekCalendar } from "@/components/two-week-calendar";
+import { ArrowLeft, LogOut, Menu, Settings, User, X } from "lucide-react";
+import { useMemo, useState } from "react";
 
 interface TrainingDay {
-  date: string
-  type: "workout" | "rest" | "completed"
-  title?: string
-  description?: string
-  duration?: string
-  exercises?: string[]
+  date: string;
+  type: "workout" | "rest" | "completed";
+  title?: string;
+  description?: string;
+  duration?: string;
+  exercises?: string[];
 }
 
 interface HomeScreenProps {
-  userName?: string
-  onLogout: () => void
+  userName?: string;
+  onLogout: () => void;
 }
 
 // Helper to format date as YYYY-MM-DD
 const formatDateKey = (date: Date) => {
-  const year = date.getFullYear()
-  const month = String(date.getMonth() + 1).padStart(2, "0")
-  const day = String(date.getDate()).padStart(2, "0")
-  return `${year}-${month}-${day}`
-}
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, "0");
+  const day = String(date.getDate()).padStart(2, "0");
+  return `${year}-${month}-${day}`;
+};
 
 export function HomeScreen({ userName = "User", onLogout }: HomeScreenProps) {
-  const [selectedDate, setSelectedDate] = useState(new Date())
-  const [menuOpen, setMenuOpen] = useState(false)
-  const [showFullCalendar, setShowFullCalendar] = useState(false)
-  const [isTraining, setIsTraining] = useState(false)
+  const [selectedDate, setSelectedDate] = useState(new Date());
+  const [menuOpen, setMenuOpen] = useState(false);
+  const [showFullCalendar, setShowFullCalendar] = useState(false);
+  const [isTraining, setIsTraining] = useState(false);
+  const [chatFullscreen, setChatFullscreen] = useState(false);
   const [messages, setMessages] = useState<Message[]>([
     {
       id: "welcome",
@@ -40,32 +41,32 @@ export function HomeScreen({ userName = "User", onLogout }: HomeScreenProps) {
       sender: "assistant",
       timestamp: new Date(),
     },
-  ])
+  ]);
 
   // Mock training data - in a real app this would come from an API
   const trainingData: TrainingDay[] = useMemo(() => {
-    const today = new Date()
-    const data: TrainingDay[] = []
-    
+    const today = new Date();
+    const data: TrainingDay[] = [];
+
     // Generate sample training data for the current month
     for (let i = -14; i < 30; i++) {
-      const date = new Date(today)
-      date.setDate(today.getDate() + i)
-      const dateKey = formatDateKey(date)
-      
+      const date = new Date(today);
+      date.setDate(today.getDate() + i);
+      const dateKey = formatDateKey(date);
+
       // Skip some days randomly for variety
-      if (Math.random() > 0.7 && i !== 0) continue
-      
-      const isPast = i < 0
-      const isRestDay = date.getDay() === 0 || date.getDay() === 3 // Sunday and Wednesday are rest days
-      
+      if (Math.random() > 0.7 && i !== 0) continue;
+
+      const isPast = i < 0;
+      const isRestDay = date.getDay() === 0 || date.getDay() === 3; // Sunday and Wednesday are rest days
+
       if (isRestDay) {
         data.push({
           date: dateKey,
           type: "rest",
           title: "Rest Day",
           description: "Recovery is important for progress",
-        })
+        });
       } else if (isPast) {
         data.push({
           date: dateKey,
@@ -74,51 +75,63 @@ export function HomeScreen({ userName = "User", onLogout }: HomeScreenProps) {
           description: "Interval training",
           duration: "45 min",
           exercises: ["Warm-up 5 min", "5x 400m sprints", "Cool-down 10 min"],
-        })
+        });
       } else {
         const workouts = [
           {
-            title: "HIIT Training",
-            description: "High intensity interval training",
-            duration: "30 min",
-            exercises: ["Burpees 3x15", "Mountain climbers 3x30", "Jump squats 3x20", "Plank 3x60s"],
+            title: "Interval Training",
+            description: "8x400m at 5K pace",
+            duration: "45 min",
+            exercises: [
+              "Warm-up 10 min easy",
+              "8x400m (90s rest)",
+              "Cool-down 10 min",
+            ],
           },
           {
             title: "Long Run",
             description: "Endurance building",
             duration: "60 min",
-            exercises: ["Easy pace 10km", "Cadence drills", "Stretching"],
+            exercises: [
+              "Warm-up 10 min",
+              "Easy pace 40 min",
+              "Cool-down 10 min",
+            ],
           },
           {
-            title: "Strength Training",
-            description: "Full body workout",
-            duration: "45 min",
-            exercises: ["Squats 4x12", "Deadlifts 4x10", "Bench press 4x10", "Rows 4x12"],
+            title: "Tempo Run",
+            description: "Threshold training",
+            duration: "35 min",
+            exercises: [
+              "Warm-up 10 min",
+              "20 min at threshold",
+              "Cool-down 5 min",
+            ],
           },
-        ]
-        const workout = workouts[Math.floor(Math.random() * workouts.length)]
+        ];
+        const workout = workouts[Math.floor(Math.random() * workouts.length)];
         data.push({
           date: dateKey,
           type: "workout",
           ...workout,
-        })
+        });
       }
     }
-    
-    return data
-  }, [])
+
+    return data;
+  }, []);
 
   // Get training for selected date
   const selectedTraining = useMemo(() => {
-    const dateKey = formatDateKey(selectedDate)
-    const training = trainingData.find((t) => t.date === dateKey)
-    
+    const dateKey = formatDateKey(selectedDate);
+    const training = trainingData.find((t) => t.date === dateKey);
+
     if (!training) {
-      return { type: "none" as const }
+      return { type: "none" as const };
     }
-    
-    return training
-  }, [selectedDate, trainingData])
+
+    return training;
+  }, [selectedDate, trainingData]);
 
   const handleSendMessage = (content: string) => {
     setMessages((prev) => [
@@ -129,7 +142,9 @@ export function HomeScreen({ userName = "User", onLogout }: HomeScreenProps) {
         sender: "user",
         timestamp: new Date(),
       },
-    ])
+    ]);
+
+    setChatFullscreen(true);
 
     setTimeout(() => {
       const responses = [
@@ -137,8 +152,9 @@ export function HomeScreen({ userName = "User", onLogout }: HomeScreenProps) {
         "Great question! Let me help you with that.",
         "I can assist you with workout modifications, nutrition tips, or schedule adjustments. What do you need?",
         "Let me check your training plan and get back to you!",
-      ]
-      const randomResponse = responses[Math.floor(Math.random() * responses.length)]
+      ];
+      const randomResponse =
+        responses[Math.floor(Math.random() * responses.length)];
 
       setMessages((prev) => [
         ...prev,
@@ -148,14 +164,14 @@ export function HomeScreen({ userName = "User", onLogout }: HomeScreenProps) {
           sender: "assistant",
           timestamp: new Date(),
         },
-      ])
-    }, 1000)
-  }
+      ]);
+    }, 1000);
+  };
 
   const handleDateSelectFromCalendar = (date: Date) => {
-    setSelectedDate(date)
-    setShowFullCalendar(false)
-  }
+    setSelectedDate(date);
+    setShowFullCalendar(false);
+  };
 
   // Show live session
   if (isTraining) {
@@ -164,7 +180,7 @@ export function HomeScreen({ userName = "User", onLogout }: HomeScreenProps) {
         onFinish={() => setIsTraining(false)}
         onBack={() => setIsTraining(false)}
       />
-    )
+    );
   }
 
   // Show full calendar
@@ -175,13 +191,51 @@ export function HomeScreen({ userName = "User", onLogout }: HomeScreenProps) {
         onSelectDate={handleDateSelectFromCalendar}
         trainingData={trainingData}
       />
-    )
+    );
+  }
+
+  // Show chat fullscreen
+  if (chatFullscreen) {
+    return (
+      <div className="min-h-screen bg-background flex flex-col">
+        <header className="flex items-center gap-4 p-4 border-b border-border">
+          <button
+            onClick={() => setChatFullscreen(false)}
+            className="text-muted-foreground hover:text-foreground transition-colors"
+          >
+            <ArrowLeft className="h-6 w-6" />
+          </button>
+          <div className="flex items-center gap-3">
+            <img
+              src="/images/login-mascot.webp"
+              alt="AI Assistant"
+              className="w-10 h-10 object-contain"
+            />
+            <div>
+              <h1 className="font-semibold text-foreground">
+                TR<span className="text-primary">AI</span>NER
+              </h1>
+              <p className="text-xs text-muted-foreground">Ask me anything</p>
+            </div>
+          </div>
+        </header>
+        <div className="flex-1 flex flex-col">
+          <ChatInterface
+            messages={messages}
+            onSendMessage={handleSendMessage}
+            placeholder="Ask me anything..."
+            mascotImage="/images/login-mascot.webp"
+            className="flex-1 rounded-none"
+          />
+        </div>
+      </div>
+    );
   }
 
   return (
     <div className="min-h-screen bg-background flex flex-col">
       {/* Header */}
-      <header className="flex items-center justify-between p-4 border-b border-border">
+      <header className="flex items-center justify-between p-4 border-b border-border shrink-0">
         <h1 className="text-2xl font-bold text-foreground">
           Cheetah<span className="text-primary">Fit</span>
         </h1>
@@ -194,7 +248,8 @@ export function HomeScreen({ userName = "User", onLogout }: HomeScreenProps) {
       </header>
 
       {/* Main content */}
-      <main className="flex-1 p-4 space-y-4 overflow-y-auto">
+      <main className="flex-1 p-4 space-y-4">
+        {/* Removed overflow-y-auto */}
         {/* Two-week calendar */}
         <TwoWeekCalendar
           selectedDate={selectedDate}
@@ -296,5 +351,5 @@ export function HomeScreen({ userName = "User", onLogout }: HomeScreenProps) {
         </div>
       </div>
     </div>
-  )
+  );
 }

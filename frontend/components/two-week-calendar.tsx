@@ -1,28 +1,28 @@
-import { useMemo } from "react"
-import { Calendar, ChevronRight, Dumbbell, Moon, Check } from "lucide-react"
+import { Calendar, Check, ChevronRight } from "lucide-react";
+import { useMemo } from "react";
 
 interface TrainingDay {
-  date: string // YYYY-MM-DD
-  type: "workout" | "rest" | "completed"
-  title?: string
-  description?: string
-  duration?: string
+  date: string; // YYYY-MM-DD
+  type: "workout" | "rest" | "completed";
+  title?: string;
+  description?: string;
+  duration?: string;
 }
 
 interface DayInfo {
-  date: Date
-  dayName: string
-  dayNumber: number
-  isToday: boolean
-  isPast: boolean
-  training?: TrainingDay
+  date: Date;
+  dayName: string;
+  dayNumber: number;
+  isToday: boolean;
+  isPast: boolean;
+  training?: TrainingDay;
 }
 
 interface TwoWeekCalendarProps {
-  selectedDate?: Date
-  onDateSelect?: (date: Date) => void
-  onViewAll?: () => void
-  trainingData?: TrainingDay[]
+  selectedDate?: Date;
+  onDateSelect?: (date: Date) => void;
+  onViewAll?: () => void;
+  trainingData?: TrainingDay[];
 }
 
 export function TwoWeekCalendar({
@@ -32,27 +32,27 @@ export function TwoWeekCalendar({
   trainingData = [],
 }: TwoWeekCalendarProps) {
   const formatDateKey = (date: Date) => {
-    return date.toISOString().split("T")[0]
-  }
+    return date.toISOString().split("T")[0];
+  };
 
   const days = useMemo(() => {
-    const today = new Date()
-    const dayNames = ["SUN", "MON", "TUE", "WED", "THU", "FRI", "SAT"]
-    const result: DayInfo[] = []
+    const today = new Date();
+    const dayNames = ["MON", "TUE", "WED", "THU", "FRI", "SAT", "SUN"];
+    const result: DayInfo[] = [];
 
     // Get the Monday of current week
-    const currentDay = today.getDay()
-    const monday = new Date(today)
-    monday.setDate(today.getDate() - (currentDay === 0 ? 6 : currentDay - 1))
+    const currentDay = today.getDay();
+    const monday = new Date(today);
+    monday.setDate(today.getDate() - (currentDay === 0 ? 6 : currentDay - 1));
 
     // Generate 14 days (2 weeks)
     for (let i = 0; i < 14; i++) {
-      const date = new Date(monday)
-      date.setDate(monday.getDate() + i)
-      
-      const dateKey = formatDateKey(date)
-      const training = trainingData.find((t) => t.date === dateKey)
-      
+      const date = new Date(monday);
+      date.setDate(monday.getDate() + i);
+
+      const dateKey = formatDateKey(date);
+      const training = trainingData.find((t) => t.date === dateKey);
+
       result.push({
         date,
         dayName: dayNames[date.getDay()],
@@ -63,23 +63,23 @@ export function TwoWeekCalendar({
           date.getFullYear() === today.getFullYear(),
         isPast: date < today && !result[result.length - 1]?.isToday,
         training,
-      })
+      });
     }
 
-    return result
-  }, [trainingData])
+    return result;
+  }, [trainingData]);
 
-  const week1 = days.slice(0, 7)
-  const week2 = days.slice(7, 14)
+  const week1 = days.slice(0, 7);
+  const week2 = days.slice(7, 14);
 
   const isSelected = (date: Date) => {
-    if (!selectedDate) return false
+    if (!selectedDate) return false;
     return (
       date.getDate() === selectedDate.getDate() &&
       date.getMonth() === selectedDate.getMonth() &&
       date.getFullYear() === selectedDate.getFullYear()
-    )
-  }
+    );
+  };
 
   const DayCell = ({ day }: { day: DayInfo }) => (
     <button
@@ -88,13 +88,13 @@ export function TwoWeekCalendar({
         day.isToday
           ? "bg-primary text-primary-foreground"
           : isSelected(day.date)
-          ? "bg-secondary text-foreground ring-2 ring-primary"
-          : "bg-secondary/50 text-foreground hover:bg-secondary"
+            ? "bg-secondary text-foreground ring-2 ring-primary"
+            : "bg-secondary/50 text-foreground hover:bg-secondary"
       }`}
     >
       <span className="text-[9px] font-medium opacity-80">{day.dayName}</span>
       <span className="text-base font-bold">{day.dayNumber}</span>
-      
+
       {/* Training indicator */}
       {day.training && (
         <div className="absolute -bottom-0.5">
@@ -103,14 +103,14 @@ export function TwoWeekCalendar({
               <Check className="h-2 w-2 text-primary-foreground" />
             </div>
           ) : day.training.type === "workout" ? (
-            <div className="w-1.5 h-1.5 rounded-full bg-orange-500" />
+            <div className="w-1.5 h-1.5 my-1 rounded-full bg-orange-500" />
           ) : (
-            <div className="w-1.5 h-1.5 rounded-full bg-blue-400" />
+            <div className="w-1.5 h-1.5 my-1 rounded-full bg-blue-400" />
           )}
         </div>
       )}
     </button>
-  )
+  );
 
   return (
     <div className="bg-card rounded-xl p-4">
@@ -118,7 +118,9 @@ export function TwoWeekCalendar({
       <div className="flex items-center justify-between mb-4">
         <div className="flex items-center gap-2 text-muted-foreground">
           <Calendar className="h-4 w-4" />
-          <span className="text-xs font-medium tracking-wide">2-WEEK SCHEDULE</span>
+          <span className="text-xs font-medium tracking-wide">
+            2-WEEK SCHEDULE
+          </span>
         </div>
         {onViewAll && (
           <button
@@ -145,5 +147,5 @@ export function TwoWeekCalendar({
         ))}
       </div>
     </div>
-  )
+  );
 }

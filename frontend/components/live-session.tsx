@@ -1,5 +1,13 @@
-import { useState, useEffect, useCallback } from "react"
-import { ArrowLeft, Pause, Play, Square, Heart, MapPin, Gauge } from "lucide-react"
+import {
+  ArrowLeft,
+  Gauge,
+  Heart,
+  MapPin,
+  Pause,
+  Play,
+  Square,
+} from "lucide-react";
+import { useCallback, useEffect, useState } from "react";
 
 const motivationalQuotes = [
   "You're doing amazing! Keep pushing!",
@@ -9,53 +17,60 @@ const motivationalQuotes = [
   "You're faster than you think!",
   "This is where legends are made!",
   "Push through - greatness awaits!",
-]
+];
 
 interface LiveSessionProps {
-  onFinish: () => void
-  onBack: () => void
+  onFinish: () => void;
+  onBack: () => void;
 }
 
 export function LiveSession({ onFinish, onBack }: LiveSessionProps) {
-  const [isPaused, setIsPaused] = useState(false)
-  const [elapsedSeconds, setElapsedSeconds] = useState(0)
-  const [heartRate, setHeartRate] = useState(142)
-  const [distance, setDistance] = useState(0)
-  const [speed, setSpeed] = useState(0)
-  const [quote] = useState(() => 
-    motivationalQuotes[Math.floor(Math.random() * motivationalQuotes.length)]
-  )
+  const [isPaused, setIsPaused] = useState(false);
+  const [elapsedSeconds, setElapsedSeconds] = useState(0);
+  const [heartRate, setHeartRate] = useState(142);
+  const [distance, setDistance] = useState(0);
+  const [speed, setSpeed] = useState(0);
+  const [quote] = useState(
+    () =>
+      motivationalQuotes[Math.floor(Math.random() * motivationalQuotes.length)],
+  );
 
   // Timer effect
   useEffect(() => {
-    if (isPaused) return
+    if (isPaused) return;
 
     const interval = setInterval(() => {
-      setElapsedSeconds((prev) => prev + 1)
+      setElapsedSeconds((prev) => prev + 1);
       // Simulate changing stats
-      setHeartRate((prev) => Math.min(180, Math.max(120, prev + Math.floor(Math.random() * 5) - 2)))
-      setDistance((prev) => prev + (Math.random() * 0.01))
-      setSpeed((prev) => Math.max(0, 10 + Math.random() * 5))
-    }, 1000)
+      setHeartRate((prev) =>
+        Math.min(180, Math.max(120, prev + Math.floor(Math.random() * 5) - 2)),
+      );
+      setDistance((prev) => prev + Math.random() * 0.01);
+      setSpeed((prev) => Math.max(0, 10 + Math.random() * 5));
+    }, 1000);
 
-    return () => clearInterval(interval)
-  }, [isPaused])
+    return () => clearInterval(interval);
+  }, [isPaused]);
 
   const formatTime = useCallback((seconds: number) => {
-    const mins = Math.floor(seconds / 60)
-    const secs = seconds % 60
-    return `${mins.toString().padStart(2, "0")}:${secs.toString().padStart(2, "0")}`
-  }, [])
+    const mins = Math.floor(seconds / 60);
+    const secs = seconds % 60;
+    return `${mins.toString().padStart(2, "0")}:${secs.toString().padStart(2, "0")}`;
+  }, []);
 
   const getHeartRateZone = (hr: number) => {
-    if (hr < 120) return { zone: 1, label: "ZONE 1", color: "bg-blue-500", width: "20%" }
-    if (hr < 140) return { zone: 2, label: "ZONE 2", color: "bg-green-500", width: "40%" }
-    if (hr < 155) return { zone: 3, label: "ZONE 3", color: "bg-yellow-500", width: "60%" }
-    if (hr < 170) return { zone: 4, label: "ZONE 4", color: "bg-orange-500", width: "80%" }
-    return { zone: 5, label: "ZONE 5", color: "bg-red-500", width: "100%" }
-  }
+    if (hr < 120)
+      return { zone: 1, label: "ZONE 1", color: "bg-blue-500", width: "20%" };
+    if (hr < 140)
+      return { zone: 2, label: "ZONE 2", color: "bg-green-500", width: "40%" };
+    if (hr < 155)
+      return { zone: 3, label: "ZONE 3", color: "bg-yellow-500", width: "60%" };
+    if (hr < 170)
+      return { zone: 4, label: "ZONE 4", color: "bg-orange-500", width: "80%" };
+    return { zone: 5, label: "ZONE 5", color: "bg-red-500", width: "100%" };
+  };
 
-  const hrZone = getHeartRateZone(heartRate)
+  const hrZone = getHeartRateZone(heartRate);
 
   return (
     <div className="min-h-screen bg-background flex flex-col">
@@ -67,7 +82,9 @@ export function LiveSession({ onFinish, onBack }: LiveSessionProps) {
         >
           <ArrowLeft className="h-5 w-5 text-foreground" />
         </button>
-        <h1 className="text-xl font-bold text-foreground tracking-wide">LIVE SESSION</h1>
+        <h1 className="text-xl font-bold text-foreground tracking-wide">
+          LIVE SESSION
+        </h1>
       </header>
 
       {/* Main content */}
@@ -101,7 +118,9 @@ export function LiveSession({ onFinish, onBack }: LiveSessionProps) {
           <div className="bg-secondary rounded-xl p-4 space-y-3">
             <div className="flex items-center justify-center gap-2">
               <Heart className="h-6 w-6 text-red-500 fill-red-500" />
-              <span className="text-3xl font-bold text-foreground">{heartRate}</span>
+              <span className="text-3xl font-bold text-foreground">
+                {heartRate}
+              </span>
             </div>
             <div className="h-2 bg-muted rounded-full overflow-hidden">
               <div
@@ -119,12 +138,16 @@ export function LiveSession({ onFinish, onBack }: LiveSessionProps) {
         <div className="grid grid-cols-2 gap-3">
           <div className="bg-card rounded-xl p-4 text-center">
             <MapPin className="h-5 w-5 text-muted-foreground mx-auto mb-2" />
-            <p className="text-3xl font-bold text-foreground">{distance.toFixed(1)}</p>
+            <p className="text-3xl font-bold text-foreground">
+              {distance.toFixed(1)}
+            </p>
             <p className="text-xs text-muted-foreground uppercase">KM</p>
           </div>
           <div className="bg-card rounded-xl p-4 text-center">
             <Gauge className="h-5 w-5 text-muted-foreground mx-auto mb-2" />
-            <p className="text-3xl font-bold text-foreground">{speed.toFixed(1)}</p>
+            <p className="text-3xl font-bold text-foreground">
+              {speed.toFixed(1)}
+            </p>
             <p className="text-xs text-muted-foreground uppercase">KM/H</p>
           </div>
         </div>
@@ -157,5 +180,5 @@ export function LiveSession({ onFinish, onBack }: LiveSessionProps) {
         </div>
       </main>
     </div>
-  )
+  );
 }
