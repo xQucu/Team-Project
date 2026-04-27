@@ -1,4 +1,4 @@
-import { Check, Clock, Dumbbell, Moon, Play } from "lucide-react";
+import { Check, Clock, Footprints, Moon, Play } from "lucide-react";
 
 interface TrainingInfo {
   type: "workout" | "rest" | "none" | "completed";
@@ -39,7 +39,7 @@ export function TrainingCard({
         <p className="text-xs text-muted-foreground mb-3">{dateLabel}</p>
         <div className="flex items-center gap-4">
           <div className="w-12 h-12 bg-secondary rounded-full flex items-center justify-center">
-            <Dumbbell className="h-6 w-6 text-muted-foreground" />
+            <Footprints className="h-6 w-6 text-muted-foreground" />
           </div>
           <div className="flex-1">
             <p className="text-muted-foreground text-sm">
@@ -125,7 +125,7 @@ export function TrainingCard({
       <p className="text-xs text-muted-foreground mb-3">{dateLabel}</p>
       <div className="flex items-center gap-4">
         <div className="w-12 h-12 bg-orange-500/20 rounded-full flex items-center justify-center">
-          <Dumbbell className="h-6 w-6 text-orange-500" />
+          <Footprints className="h-6 w-6 text-orange-500" />
         </div>
         <div className="flex-1">
           <p className="text-foreground font-medium">{training.title}</p>

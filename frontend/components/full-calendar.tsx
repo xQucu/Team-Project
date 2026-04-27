@@ -4,7 +4,7 @@ import {
   Check,
   ChevronLeft,
   ChevronRight,
-  Dumbbell,
+  Footprints,
   Moon,
 } from "lucide-react";
 import { useMemo, useState } from "react";
@@ -187,7 +187,7 @@ export function FullCalendar({
                         <Check className="h-2.5 w-2.5 text-primary-foreground" />
                       </div>
                     ) : training.type === "workout" ? (
-                      <Dumbbell className="h-3 w-3 text-orange-500" />
+                      <Footprints className="h-3 w-3 text-orange-500" />
                     ) : (
                       <Moon className="h-3 w-3 text-blue-400" />
                     )}
@@ -207,7 +207,7 @@ export function FullCalendar({
             <span className="text-xs text-muted-foreground">Completed</span>
           </div>
           <div className="flex items-center gap-2">
-            <Dumbbell className="h-3.5 w-3.5 text-orange-500" />
+            <Footprints className="h-3.5 w-3.5 text-orange-500" />
             <span className="text-xs text-muted-foreground">Workout</span>
           </div>
           <div className="flex items-center gap-2">
