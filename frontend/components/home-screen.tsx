@@ -196,8 +196,8 @@ export function HomeScreen({ userName = "User", onLogout }: HomeScreenProps) {
   // Show chat fullscreen
   if (chatFullscreen) {
     return (
-      <div className="min-h-screen bg-background flex flex-col">
-        <header className="flex items-center gap-4 p-4 border-b border-border">
+      <div className="h-screen overflow-hidden bg-background flex flex-col">
+        <header className="flex items-center gap-4 p-4 border-b border-border shrink-0">
           <button
             onClick={() => setChatFullscreen(false)}
             className="text-muted-foreground hover:text-foreground transition-colors"
@@ -218,7 +218,7 @@ export function HomeScreen({ userName = "User", onLogout }: HomeScreenProps) {
             </div>
           </div>
         </header>
-        <div className="flex-1 flex flex-col">
+        <div className="flex-1 flex flex-col overflow-hidden">
           <ChatInterface
             messages={messages}
             onSendMessage={handleSendMessage}

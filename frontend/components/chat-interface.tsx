@@ -69,7 +69,7 @@ export function ChatInterface({
       </div>
 
       {/* Messages */}
-      <div className="flex-1 overflow-y-auto p-4 space-y-4 chat-scrollbar min-h-[200px]">
+      <div className="flex-1 overflow-y-auto p-4 space-y-4 chat-scrollbar min-h-[200px] max-h-[calc(100vh-180px)]">
         {messages.map((message) => (
           <div
             key={message.id}
