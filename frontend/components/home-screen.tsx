@@ -170,7 +170,6 @@ export function HomeScreen({ userName = "User", onLogout }: HomeScreenProps) {
 
   const handleDateSelectFromCalendar = (date: Date) => {
     setSelectedDate(date);
-    setShowFullCalendar(false);
   };
 
   // Show live session

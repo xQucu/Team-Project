@@ -1,3 +1,4 @@
+import { TrainingCard } from "@/components/training-card";
 import {
   ArrowLeft,
   Check,
@@ -28,6 +29,7 @@ export function FullCalendar({
   trainingData,
 }: FullCalendarProps) {
   const [currentMonth, setCurrentMonth] = useState(new Date());
+  const [selectedDate, setSelectedDate] = useState<Date | null>(null);
 
   const calendarDays = useMemo(() => {
     const year = currentMonth.getFullYear();
@@ -159,11 +161,16 @@ export function FullCalendar({
             return (
               <button
                 key={formatDateKey(date)}
-                onClick={() => onSelectDate(date)}
+                onClick={() => {
+                  onSelectDate(date);
+                  setSelectedDate(date);
+                }}
                 className={`aspect-square flex flex-col items-center justify-center rounded-lg transition-all relative ${
                   today
                     ? "bg-primary text-primary-foreground"
-                    : "bg-card hover:bg-secondary"
+                    : selectedDate?.toDateString() === date.toDateString()
+                      ? "ring-2 ring-primary"
+                      : "bg-card hover:bg-secondary"
                 }`}
               >
                 <span
@@ -208,6 +215,16 @@ export function FullCalendar({
             <span className="text-xs text-muted-foreground">Rest</span>
           </div>
         </div>
+
+        {/* Selected training card */}
+        {selectedDate && getTrainingForDate(selectedDate) && (
+          <div className="p-4 pt-6">
+            <TrainingCard
+              training={getTrainingForDate(selectedDate)!}
+              selectedDate={selectedDate}
+            />
+          </div>
+        )}
       </div>
     </div>
   );
