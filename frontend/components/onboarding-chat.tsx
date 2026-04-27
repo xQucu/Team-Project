@@ -1,6 +1,6 @@
-import { useState, useEffect, useCallback } from "react"
-import { ChatInterface, Message } from "@/components/chat-interface"
-import { ArrowLeft } from "lucide-react"
+import { ChatInterface, Message } from "@/components/chat-interface";
+import { ArrowLeft } from "lucide-react";
+import { useCallback, useEffect, useState } from "react";
 
 const ONBOARDING_QUESTIONS = [
   "Hey there! I'm your personal training assistant 🐆 What's your main fitness goal? (e.g., lose weight, build muscle, improve endurance)",
@@ -9,18 +9,18 @@ const ONBOARDING_QUESTIONS = [
   "Do you have access to a gym, or will you be training at home?",
   "Any injuries or physical limitations I should know about?",
   "Perfect! I've got everything I need to create your personalized training plan. Let's get you moving! 💪",
-]
+];
 
 interface OnboardingChatProps {
-  onComplete: (answers: string[]) => void
-  onBack?: () => void
+  onComplete: (answers: string[]) => void;
+  onBack?: () => void;
 }
 
 export function OnboardingChat({ onComplete, onBack }: OnboardingChatProps) {
-  const [messages, setMessages] = useState<Message[]>([])
-  const [currentQuestion, setCurrentQuestion] = useState(0)
-  const [answers, setAnswers] = useState<string[]>([])
-  const [isTyping, setIsTyping] = useState(false)
+  const [messages, setMessages] = useState<Message[]>([]);
+  const [currentQuestion, setCurrentQuestion] = useState(0);
+  const [answers, setAnswers] = useState<string[]>([]);
+  const [isTyping, setIsTyping] = useState(false);
 
   const addAssistantMessage = useCallback((content: string) => {
     setMessages((prev) => [
@@ -31,16 +31,16 @@ export function OnboardingChat({ onComplete, onBack }: OnboardingChatProps) {
         sender: "assistant",
         timestamp: new Date(),
       },
-    ])
-  }, [])
+    ]);
+  }, []);
 
   // Initial greeting
   useEffect(() => {
     const timer = setTimeout(() => {
-      addAssistantMessage(ONBOARDING_QUESTIONS[0])
-    }, 500)
-    return () => clearTimeout(timer)
-  }, [addAssistantMessage])
+      addAssistantMessage(ONBOARDING_QUESTIONS[0]);
+    }, 500);
+    return () => clearTimeout(timer);
+  }, [addAssistantMessage]);
 
   const handleSendMessage = (content: string) => {
     // Add user message
@@ -52,34 +52,34 @@ export function OnboardingChat({ onComplete, onBack }: OnboardingChatProps) {
         sender: "user",
         timestamp: new Date(),
       },
-    ])
+    ]);
 
     // Save answer
-    const newAnswers = [...answers, content]
-    setAnswers(newAnswers)
+    const newAnswers = [...answers, content];
+    setAnswers(newAnswers);
 
-    const nextQuestion = currentQuestion + 1
+    const nextQuestion = currentQuestion + 1;
 
     if (nextQuestion < ONBOARDING_QUESTIONS.length) {
       // Show typing indicator and next question
-      setIsTyping(true)
+      setIsTyping(true);
       setTimeout(() => {
-        setIsTyping(false)
-        addAssistantMessage(ONBOARDING_QUESTIONS[nextQuestion])
-        setCurrentQuestion(nextQuestion)
+        setIsTyping(false);
+        addAssistantMessage(ONBOARDING_QUESTIONS[nextQuestion]);
+        setCurrentQuestion(nextQuestion);
 
         // If this was the last question with an actual input expected
         if (nextQuestion === ONBOARDING_QUESTIONS.length - 1) {
           // Complete after showing final message
           setTimeout(() => {
-            onComplete(newAnswers)
-          }, 2000)
+            onComplete(newAnswers);
+          }, 2000);
         }
-      }, 1000)
+      }, 1000);
     }
-  }
+  };
 
-  const isLastQuestion = currentQuestion === ONBOARDING_QUESTIONS.length - 1
+  const isLastQuestion = currentQuestion === ONBOARDING_QUESTIONS.length - 1;
 
   return (
     <div className="min-h-screen bg-background flex flex-col">
@@ -123,7 +123,9 @@ export function OnboardingChat({ onComplete, onBack }: OnboardingChatProps) {
       {/* Progress indicator */}
       <div className="p-4 border-t border-border">
         <div className="flex items-center justify-between mb-2">
-          <span className="text-xs text-muted-foreground">Getting to know you</span>
+          <span className="text-xs text-muted-foreground">
+            Getting to know you
+          </span>
           <span className="text-xs text-primary">
             {Math.min(currentQuestion + 1, ONBOARDING_QUESTIONS.length - 1)}/
             {ONBOARDING_QUESTIONS.length - 1}
@@ -139,5 +141,5 @@ export function OnboardingChat({ onComplete, onBack }: OnboardingChatProps) {
         </div>
       </div>
     </div>
-  )
+  );
 }

@@ -1,35 +1,35 @@
-import { useState } from "react"
-import { Eye, EyeOff, Mail, Lock } from "lucide-react"
-import { Button } from "@/components/ui/button"
-import { Input } from "@/components/ui/input"
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Eye, EyeOff, Lock, Mail } from "lucide-react";
+import { useState } from "react";
 
 interface LoginScreenProps {
-  onLogin: (email: string, password: string) => void
-  onSignup: () => void
+  onLogin: (email: string, password: string) => void;
+  onSignup: () => void;
 }
 
 export function LoginScreen({ onLogin, onSignup }: LoginScreenProps) {
-  const [email, setEmail] = useState("")
-  const [password, setPassword] = useState("")
-  const [showPassword, setShowPassword] = useState(false)
-  const [isLoading, setIsLoading] = useState(false)
-  const [error, setError] = useState("")
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+  const [showPassword, setShowPassword] = useState(false);
+  const [isLoading, setIsLoading] = useState(false);
+  const [error, setError] = useState("");
 
   const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault()
-    setError("")
-    
+    e.preventDefault();
+    setError("");
+
     if (!email || !password) {
-      setError("Please fill in all fields")
-      return
+      setError("Please fill in all fields");
+      return;
     }
 
-    setIsLoading(true)
+    setIsLoading(true);
     // Simulate login delay
-    await new Promise((resolve) => setTimeout(resolve, 800))
-    setIsLoading(false)
-    onLogin(email, password)
-  }
+    await new Promise((resolve) => setTimeout(resolve, 800));
+    setIsLoading(false);
+    onLogin(email, password);
+  };
 
   return (
     <div className="min-h-screen bg-background flex flex-col items-center justify-center p-6">
@@ -43,7 +43,9 @@ export function LoginScreen({ onLogin, onSignup }: LoginScreenProps) {
         <h1 className="text-3xl font-bold text-foreground">
           Cheetah<span className="text-primary">Fit</span>
         </h1>
-        <p className="text-muted-foreground text-sm mt-1">Your AI Training Companion</p>
+        <p className="text-muted-foreground text-sm mt-1">
+          Your AI Training Companion
+        </p>
       </div>
 
       {/* Login form */}
@@ -79,7 +81,11 @@ export function LoginScreen({ onLogin, onSignup }: LoginScreenProps) {
             onClick={() => setShowPassword(!showPassword)}
             className="absolute right-4 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
           >
-            {showPassword ? <EyeOff className="h-5 w-5" /> : <Eye className="h-5 w-5" />}
+            {showPassword ? (
+              <EyeOff className="h-5 w-5" />
+            ) : (
+              <Eye className="h-5 w-5" />
+            )}
           </button>
         </div>
 
@@ -114,5 +120,5 @@ export function LoginScreen({ onLogin, onSignup }: LoginScreenProps) {
         </p>
       </div>
     </div>
-  )
+  );
 }
