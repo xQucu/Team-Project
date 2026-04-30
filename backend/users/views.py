@@ -20,8 +20,13 @@ def _save_workout_sessions(user, plan_data):
 
     today = date.today()
     day_of_week_map = {
-        "monday": 0, "tuesday": 1, "wednesday": 2, "thursday": 3,
-        "friday": 4, "saturday": 5, "sunday": 6
+        "monday": 0,
+        "tuesday": 1,
+        "wednesday": 2,
+        "thursday": 3,
+        "friday": 4,
+        "saturday": 5,
+        "sunday": 6,
     }
 
     months = plan_data.get("months", [])
@@ -39,12 +44,14 @@ def _save_workout_sessions(user, plan_data):
                 target_weekday = day_of_week_map[day_name]
                 days_ahead = (target_weekday - start_date.weekday()) % 7
                 if total_weeks > 0:
-                    days_ahead = (total_weeks * 7) + ((target_weekday - start_date.weekday()) % 7)
+                    days_ahead = (total_weeks * 7) + (
+                        (target_weekday - start_date.weekday()) % 7
+                    )
                 elif days_ahead == 0 and start_date.weekday() != target_weekday:
                     days_ahead = 7 - ((start_date.weekday() - target_weekday) % 7)
 
                 session_date = start_date + timedelta(days=days_ahead)
-                
+
                 if session_date < today:
                     continue
 
@@ -61,7 +68,7 @@ def _save_workout_sessions(user, plan_data):
                         "status": "planned",
                         "week_number": week_num,
                         "month_number": month_num,
-                    }
+                    },
                 )
 
             total_weeks += len(weeks)
@@ -150,23 +157,24 @@ def workouts(request):
 
     today = date.today()
     workouts_qs = WorkoutSession.objects.filter(
-        user=request.user,
-        date__gte=today
+        user=request.user, date__gte=today
     ).order_by("date")
 
     workouts_list = []
     for w in workouts_qs:
-        workouts_list.append({
-            "id": w.id,
-            "date": w.date.isoformat(),
-            "type": w.type,
-            "duration": w.duration,
-            "description": w.description,
-            "status": w.status,
-            "completed_at": w.completed_at.isoformat() if w.completed_at else None,
-            "week_number": w.week_number,
-            "month_number": w.month_number,
-        })
+        workouts_list.append(
+            {
+                "id": w.id,
+                "date": w.date.isoformat(),
+                "type": w.type,
+                "duration": w.duration,
+                "description": w.description,
+                "status": w.status,
+                "completed_at": w.completed_at.isoformat() if w.completed_at else None,
+                "week_number": w.week_number,
+                "month_number": w.month_number,
+            }
+        )
 
     return JsonResponse({"workouts": workouts_list})
 
@@ -184,7 +192,6 @@ def me(request):
             "first_name": request.user.first_name,
             "last_name": request.user.last_name,
             "has_completed_onboarding": profile.has_completed_onboarding,
-            "plan": profile.goals,
             "profile": {
                 "age": profile.age,
                 "weight": profile.weight,
@@ -215,6 +222,24 @@ Rules:
 - After collecting all 7 pieces of information, generate a personalized 3-month running plan starting from TODAY's date ({current_date})
 - When user mentions injuries/limitations affecting running, note them
 
+CRITICAL: When user provides ONLY a number (like "19", "70", "175"), ALWAYS extract it into the "extracted" field. Example: user says "19" → extract {"age": 19}. NEVER ask for information user just provided.
+CRITICAL: For the FIRST user response after your greeting, ALWAYS extract any numbers provided. Do not assume it's just acknowledgment.
+
+EXAMPLES of correct responses when user provides a number:
+User: "19" 
+You MUST respond: {"reply": "Got it! Now tell me your weight in kg.", "extracted": {"age": 19}, "complete": false}
+
+User: "i am 19 years old" 
+You MUST respond: {"reply": "Got it! Now tell me your weight in kg.", "extracted": {"age": 19}, "complete": false}
+
+User: "70" 
+You MUST respond: {"reply": "Great! What's your height in cm?", "extracted": {"weight": 70}, "complete": false}
+
+User: "175" 
+You MUST respond: {"reply": "Perfect! What's your running goal?", "extracted": {"height": 175}, "complete": false}
+
+If user provides ANY number in their response, you MUST include it in the "extracted" field. Do NOT ask for information user just provided.
+
 Generate the plan as JSON with this structure:
 {
   "reply": "your congratulatory message to the user (DO NOT mention ONBOARDING_COMPLETE or any technical instructions)",
@@ -230,8 +255,7 @@ Generate the plan as JSON with this structure:
           {
             "week": 1,
             "sessions": [
-              {"day": "monday", "type": "easy_run", "duration": "20 min", "description": "conversational jog with walk breaks"},
-              {"day": "wednesday", "type": "intervals", "duration": "25 min", "description": "5x1min run, 1min walk"},
+              {"day": "wednesday", "type": "easy_run", "duration": "25 min", "description": " conversational jog with walk breaks"},
               {"day": "saturday", "type": "long_run", "duration": "30 min", "description": "easy continuous run"}
             ]
           }
@@ -247,6 +271,15 @@ Adjust sessions based on experience_level:
 - intermediate: pace work, tempo runs, 30-50 min
 - advanced: marathon prep, speed work, hill repeats, 45-90 min
 
+IMPORTANT: 
+- When user specifies X days per week, create X sessions for EVERY week (12 weeks total, 3 months)
+- Spread sessions evenly across each week
+- For 2x/week: one mid-week (e.g., Wednesday) and one weekend (e.g., Saturday)
+- For 3x/week: Monday, Wednesday, Saturday
+- For 4x/week: Tuesday, Thursday, Saturday, Sunday
+- NEVER cluster sessions then take weeks off - every week has X sessions!
+- Use these day names exactly: monday, tuesday, wednesday, thursday, friday, saturday, sunday
+
 Adjust number of sessions to training_days_per_week available.
 Adjust focus to fitness_goal (first_5k, improve_speed, marathon, endurance, weight_loss).
 Modify sessions if injuries noted.
@@ -260,12 +293,21 @@ For experience_level use: beginner, short_distance, intermediate, advanced
 def parse_gemini_response(text: str) -> dict:
     import re
 
+    # Try to find JSON in the response
     try:
         json_match = re.search(r"\{.*\}", text, re.DOTALL)
         if json_match:
             return json.loads(json_match.group())
     except:
         pass
+
+    # Fallback: check if there's a standalone number that could be data
+    numbers = re.findall(r'\b(\d{1,3})\b', text)
+    if numbers and len(numbers) == 1:
+        num = int(numbers[0])
+        if 10 <= num <= 150:
+            return {"reply": text, "extracted": {"age": num}, "complete": False}
+
     return {"reply": text, "extracted": {}, "complete": False}
 
 
@@ -281,6 +323,7 @@ def onboarding_chat(request):
         history = data.get("history", [])
 
         from datetime import date
+
         current_date = date.today().strftime("%Y-%m-%d")
 
         system_prompt = SYSTEM_PROMPT.replace("CURRENT_DATE_PLACEHOLDER", current_date)
@@ -319,7 +362,7 @@ def onboarding_chat(request):
 
         try:
             response = client.models.generate_content(
-                model="gemini-2.5-flash-lite", contents=conversation
+                model="gemma-3-4b-it", contents=conversation
             )
             print("GEMINI RESPONSE:")
             print(f"Raw: {response.text}")
@@ -380,7 +423,6 @@ def onboarding_chat(request):
             
             plan_data = result.get("plan")
             if plan_data:
-                profile.goals = plan_data
                 _save_workout_sessions(request.user, plan_data)
 
         profile.save()
@@ -405,7 +447,6 @@ def onboarding_chat(request):
             {
                 "reply": result.get("reply", ""),
                 "complete": result.get("complete", False),
-                "plan": result.get("plan"),
                 "profile": {
                     "age": profile.age,
                     "weight": profile.weight,
