@@ -4,7 +4,7 @@ import { Eye, EyeOff, Lock, Mail } from "lucide-react";
 import { useState } from "react";
 
 interface LoginScreenProps {
-  onLogin: (email: string, password: string) => void;
+  onLogin: (userData: { id: number; email: string; first_name: string; last_name: string; has_completed_onboarding: boolean }) => void;
   onSignup: () => void;
 }
 
@@ -25,10 +25,26 @@ export function LoginScreen({ onLogin, onSignup }: LoginScreenProps) {
     }
 
     setIsLoading(true);
-    // Simulate login delay
-    await new Promise((resolve) => setTimeout(resolve, 800));
+    try {
+      const res = await fetch("http://localhost:3000/api/auth/login/", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email, password }),
+        credentials: "include",
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        setError(data.error || "Login failed");
+        setIsLoading(false);
+        return;
+      }
+      onLogin(data);
+    } catch {
+      setError("Connection error");
+      setIsLoading(false);
+      return;
+    }
     setIsLoading(false);
-    onLogin(email, password);
   };
 
   return (

@@ -18,6 +18,7 @@ interface ChatInterfaceProps {
   title?: string;
   disabled?: boolean;
   className?: string;
+  showTypingIndicator?: boolean;
 }
 
 export function ChatInterface({
@@ -28,6 +29,7 @@ export function ChatInterface({
   title = "TRAINER",
   disabled = false,
   className = "",
+  showTypingIndicator = false,
 }: ChatInterfaceProps) {
   const [inputValue, setInputValue] = useState("");
   const messagesEndRef = useRef<HTMLDivElement>(null);
@@ -95,6 +97,22 @@ export function ChatInterface({
             </div>
           </div>
         ))}
+        {showTypingIndicator && (
+          <div className="flex items-end gap-2 justify-start">
+            <img
+              src={mascotImage}
+              alt="AI Assistant"
+              className="w-10 h-10 object-contain flex-shrink-0"
+            />
+            <div className="bg-muted text-foreground rounded-2xl rounded-bl-md px-4 py-3">
+              <div className="flex gap-1">
+                <span className="w-2 h-2 bg-muted-foreground/60 rounded-full animate-bounce" style={{ animationDelay: "0ms" }} />
+                <span className="w-2 h-2 bg-muted-foreground/60 rounded-full animate-bounce" style={{ animationDelay: "150ms" }} />
+                <span className="w-2 h-2 bg-muted-foreground/60 rounded-full animate-bounce" style={{ animationDelay: "300ms" }} />
+              </div>
+            </div>
+          </div>
+        )}
         <div ref={messagesEndRef} />
       </div>
 
