@@ -29,6 +29,42 @@ class UserProfile(models.Model):
         return f"Profile for {self.user.username}"
 
 
+class WorkoutSession(models.Model):
+    STATUS_CHOICES = [
+        ("planned", "Planned"),
+        ("completed", "Completed"),
+        ("missed", "Missed"),
+    ]
+
+    TYPE_CHOICES = [
+        ("easy_run", "Easy Run"),
+        ("intervals", "Intervals"),
+        ("long_run", "Long Run"),
+        ("tempo", "Tempo Run"),
+        ("rest", "Rest Day"),
+        ("speed", "Speed Work"),
+        ("hill", "Hill Repeats"),
+        ("recovery", "Recovery Run"),
+    ]
+
+    user = models.ForeignKey(User, on_delete=models.CASCADE, related_name="workouts")
+    date = models.DateField()
+    type = models.CharField(max_length=20, choices=TYPE_CHOICES)
+    duration = models.CharField(max_length=50)
+    description = models.TextField()
+    status = models.CharField(max_length=20, choices=STATUS_CHOICES, default="planned")
+    completed_at = models.DateTimeField(null=True, blank=True)
+    week_number = models.IntegerField()
+    month_number = models.IntegerField()
+
+    class Meta:
+        unique_together = ["user", "date"]
+        ordering = ["date"]
+
+    def __str__(self):
+        return f"{self.user.username} - {self.date} - {self.type}"
+
+
 @receiver(post_save, sender=User)
 def create_user_profile(sender, instance, created, **kwargs):
     if created:

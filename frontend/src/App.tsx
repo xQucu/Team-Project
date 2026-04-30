@@ -55,12 +55,13 @@ export default function App() {
   };
 
   const handleOnboardingComplete = (_answers: string[]) => {
-    if (userData) {
-      const updatedUser = { ...userData, has_completed_onboarding: true };
-      localStorage.setItem("cheetahfit_user", JSON.stringify(updatedUser));
-      setUserData(updatedUser);
-    }
-    setCurrentScreen("home");
+    fetch("http://localhost:3000/api/auth/me/", { credentials: "include" })
+      .then((res) => res.json())
+      .then((data) => {
+        setUserData(data);
+        localStorage.setItem("cheetahfit_user", JSON.stringify(data));
+        setCurrentScreen("home");
+      });
   };
 
   const handleLogout = async () => {
@@ -96,7 +97,10 @@ export default function App() {
       )}
 
       {currentScreen === "home" && (
-        <HomeScreen userName={userData?.first_name} onLogout={handleLogout} />
+        <HomeScreen 
+          userName={userData?.first_name}
+          onLogout={handleLogout} 
+        />
       )}
     </div>
   );
