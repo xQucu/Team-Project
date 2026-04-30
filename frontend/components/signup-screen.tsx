@@ -4,7 +4,7 @@ import { ArrowLeft, Eye, EyeOff, Lock, Mail, User } from "lucide-react";
 import { useState } from "react";
 
 interface SignupScreenProps {
-  onSignup: (name: string, email: string, password: string) => void;
+  onSignup: (userData: { id: number; email: string; first_name: string; last_name: string; has_completed_onboarding: boolean }) => void;
   onBack: () => void;
 }
 
@@ -37,9 +37,30 @@ export function SignupScreen({ onSignup, onBack }: SignupScreenProps) {
     }
 
     setIsLoading(true);
-    await new Promise((resolve) => setTimeout(resolve, 800));
+    try {
+      const nameParts = name.trim().split(" ");
+      const first_name = nameParts[0];
+      const last_name = nameParts.slice(1).join(" ") || "";
+
+      const res = await fetch("http://localhost:3000/api/auth/register/", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email, password, first_name, last_name }),
+        credentials: "include",
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        setError(data.error || "Registration failed");
+        setIsLoading(false);
+        return;
+      }
+      onSignup(data);
+    } catch {
+      setError("Connection error");
+      setIsLoading(false);
+      return;
+    }
     setIsLoading(false);
-    onSignup(name, email, password);
   };
 
   return (

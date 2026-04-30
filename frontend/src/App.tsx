@@ -7,9 +7,11 @@ import { useEffect, useState } from "react";
 type AppScreen = "login" | "signup" | "onboarding" | "home";
 
 interface UserData {
-  name: string;
+  id: number;
   email: string;
-  hasCompletedOnboarding: boolean;
+  first_name: string;
+  last_name: string;
+  has_completed_onboarding: boolean;
 }
 
 export default function App() {
@@ -17,54 +19,57 @@ export default function App() {
   const [userData, setUserData] = useState<UserData | null>(null);
 
   useEffect(() => {
-    const savedUser = localStorage.getItem("cheetahfit_user");
-    if (savedUser) {
-      const user = JSON.parse(savedUser) as UserData;
-      setUserData(user);
-      setCurrentScreen(user.hasCompletedOnboarding ? "home" : "onboarding");
-    }
+    fetch("http://localhost:3000/api/auth/me/", { credentials: "include" })
+      .then((res) => {
+        if (res.ok) return res.json();
+        throw new Error("Not authenticated");
+      })
+      .then((data) => {
+        setUserData(data);
+        localStorage.setItem("cheetahfit_user", JSON.stringify(data));
+        setCurrentScreen(data.has_completed_onboarding ? "home" : "onboarding");
+      })
+      .catch(() => {
+        localStorage.removeItem("cheetahfit_user");
+      });
   }, []);
 
-  const handleLogin = (email: string, _password: string) => {
-    const existingUser = localStorage.getItem("cheetahfit_user");
-    if (existingUser) {
-      const user = JSON.parse(existingUser) as UserData;
-      setUserData(user);
-      setCurrentScreen(user.hasCompletedOnboarding ? "home" : "onboarding");
-    } else {
-      const newUser: UserData = {
-        name: email.split("@")[0],
-        email,
-        hasCompletedOnboarding: false,
-      };
-      localStorage.setItem("cheetahfit_user", JSON.stringify(newUser));
-      setUserData(newUser);
-      setCurrentScreen("onboarding");
-    }
+  const handleLogin = (user: UserData) => {
+    const userWithLocal: UserData = {
+      ...user,
+      has_completed_onboarding: user.has_completed_onboarding,
+    };
+    localStorage.setItem("cheetahfit_user", JSON.stringify(userWithLocal));
+    setUserData(userWithLocal);
+    setCurrentScreen(user.has_completed_onboarding ? "home" : "onboarding");
   };
 
-  const handleSignup = (name: string, email: string, _password: string) => {
-    const newUser: UserData = {
-      name,
-      email,
-      hasCompletedOnboarding: false,
+  const handleSignup = (user: UserData) => {
+    const userWithLocal: UserData = {
+      ...user,
+      has_completed_onboarding: false,
     };
-    localStorage.setItem("cheetahfit_user", JSON.stringify(newUser));
-    setUserData(newUser);
+    localStorage.setItem("cheetahfit_user", JSON.stringify(userWithLocal));
+    setUserData(userWithLocal);
     setCurrentScreen("onboarding");
   };
 
-  const handleOnboardingComplete = (answers: string[]) => {
-    console.log("Onboarding answers:", answers);
+  const handleOnboardingComplete = (_answers: string[]) => {
     if (userData) {
-      const updatedUser = { ...userData, hasCompletedOnboarding: true };
+      const updatedUser = { ...userData, has_completed_onboarding: true };
       localStorage.setItem("cheetahfit_user", JSON.stringify(updatedUser));
       setUserData(updatedUser);
     }
     setCurrentScreen("home");
   };
 
-  const handleLogout = () => {
+  const handleLogout = async () => {
+    try {
+      await fetch("http://localhost:3000/api/auth/logout/", {
+        method: "POST",
+        credentials: "include",
+      });
+    } catch {}
     localStorage.removeItem("cheetahfit_user");
     setUserData(null);
     setCurrentScreen("login");
@@ -91,7 +96,7 @@ export default function App() {
       )}
 
       {currentScreen === "home" && (
-        <HomeScreen userName={userData?.name} onLogout={handleLogout} />
+        <HomeScreen userName={userData?.first_name} onLogout={handleLogout} />
       )}
     </div>
   );

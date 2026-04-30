@@ -1,49 +1,73 @@
 import { ChatInterface, Message } from "@/components/chat-interface";
 import { ArrowLeft } from "lucide-react";
-import { useCallback, useEffect, useState } from "react";
-
-const ONBOARDING_QUESTIONS = [
-  "Hey there! I'm your personal training assistant 🐆 What's your main fitness goal? (e.g., lose weight, build muscle, improve endurance)",
-  "Great choice! How many days per week can you commit to training?",
-  "What's your current fitness level? (Beginner, Intermediate, or Advanced)",
-  "Do you have access to a gym, or will you be training at home?",
-  "Any injuries or physical limitations I should know about?",
-  "Perfect! I've got everything I need to create your personalized training plan. Let's get you moving! 💪",
-];
+import { useEffect, useState } from "react";
 
 interface OnboardingChatProps {
   onComplete: (answers: string[]) => void;
   onBack?: () => void;
 }
 
+interface ChatHistoryItem {
+  sender: "user" | "assistant";
+  content: string;
+}
+
+const MAX_RETRIES = 5;
+const RETRY_DELAY_MS = 2000;
+
 export function OnboardingChat({ onComplete, onBack }: OnboardingChatProps) {
   const [messages, setMessages] = useState<Message[]>([]);
-  const [currentQuestion, setCurrentQuestion] = useState(0);
-  const [answers, setAnswers] = useState<string[]>([]);
+  const [history, setHistory] = useState<ChatHistoryItem[]>([]);
   const [isTyping, setIsTyping] = useState(false);
+  const [isComplete, setIsComplete] = useState(false);
+  const [retryCount, setRetryCount] = useState(0);
 
-  const addAssistantMessage = useCallback((content: string) => {
-    setMessages((prev) => [
-      ...prev,
-      {
-        id: `assistant-${Date.now()}`,
-        content,
-        sender: "assistant",
-        timestamp: new Date(),
-      },
-    ]);
-  }, []);
+  const sendChatRequest = async (message: string, hist: ChatHistoryItem[], attempt = 0): Promise<any> => {
+    const res = await fetch("http://localhost:3000/api/auth/onboarding/chat/", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ message, history: hist }),
+      credentials: "include",
+    });
 
-  // Initial greeting
+    const data = await res.json();
+
+    if (res.status === 429 && attempt < MAX_RETRIES) {
+      setRetryCount(attempt + 1);
+      await new Promise(resolve => setTimeout(resolve, RETRY_DELAY_MS));
+      return sendChatRequest(message, hist, attempt + 1);
+    }
+
+    if (res.ok) {
+      setRetryCount(0);
+      return data;
+    }
+
+    throw new Error(data.error || "Request failed");
+  };
+
   useEffect(() => {
-    const timer = setTimeout(() => {
-      addAssistantMessage(ONBOARDING_QUESTIONS[0]);
+    const timer = setTimeout(async () => {
+      setIsTyping(true);
+      try {
+        const data = await sendChatRequest("Hello, I'm ready to start!", []);
+        if (data.reply) {
+          setMessages([{
+            id: `assistant-${Date.now()}`,
+            content: data.reply,
+            sender: "assistant",
+            timestamp: new Date(),
+          }]);
+        }
+      } catch (e) {
+        console.error(e);
+      }
+      setIsTyping(false);
     }, 500);
     return () => clearTimeout(timer);
-  }, [addAssistantMessage]);
+  }, []);
 
-  const handleSendMessage = (content: string) => {
-    // Add user message
+  const handleSendMessage = async (content: string) => {
     setMessages((prev) => [
       ...prev,
       {
@@ -54,36 +78,40 @@ export function OnboardingChat({ onComplete, onBack }: OnboardingChatProps) {
       },
     ]);
 
-    // Save answer
-    const newAnswers = [...answers, content];
-    setAnswers(newAnswers);
+    const newHistory = [...history, { sender: "user" as const, content }];
+    setHistory(newHistory);
 
-    const nextQuestion = currentQuestion + 1;
+    setIsTyping(true);
+    try {
+      const data = await sendChatRequest(content, history);
 
-    if (nextQuestion < ONBOARDING_QUESTIONS.length) {
-      // Show typing indicator and next question
-      setIsTyping(true);
-      setTimeout(() => {
-        setIsTyping(false);
-        addAssistantMessage(ONBOARDING_QUESTIONS[nextQuestion]);
-        setCurrentQuestion(nextQuestion);
+      if (data.reply) {
+        setMessages((prev) => [
+          ...prev,
+          {
+            id: `assistant-${Date.now()}`,
+            content: data.reply,
+            sender: "assistant",
+            timestamp: new Date(),
+          },
+        ]);
+        setHistory((prev) => [...prev, { sender: "assistant" as const, content: data.reply }]);
+      }
 
-        // If this was the last question with an actual input expected
-        if (nextQuestion === ONBOARDING_QUESTIONS.length - 1) {
-          // Complete after showing final message
-          setTimeout(() => {
-            onComplete(newAnswers);
-          }, 2000);
-        }
-      }, 1000);
+      if (data.complete) {
+        setIsComplete(true);
+        setTimeout(() => {
+          onComplete(newHistory.map(h => h.content));
+        }, 1500);
+      }
+    } catch (e) {
+      console.error(e);
     }
+    setIsTyping(false);
   };
-
-  const isLastQuestion = currentQuestion === ONBOARDING_QUESTIONS.length - 1;
 
   return (
     <div className="min-h-screen bg-background flex flex-col">
-      {/* Header */}
       <header className="flex items-center gap-4 p-4 border-b border-border">
         {onBack && (
           <button
@@ -102,42 +130,33 @@ export function OnboardingChat({ onComplete, onBack }: OnboardingChatProps) {
           <div>
             <h1 className="font-semibold text-foreground">Getting Started</h1>
             <p className="text-xs text-muted-foreground">
-              {isTyping ? "Typing..." : "Let me know about you"}
+              {isTyping 
+                ? retryCount > 0 
+                  ? `Retrying... (attempt ${retryCount}/${MAX_RETRIES})`
+                  : "Thinking..." 
+                : "AI Assistant"}
             </p>
           </div>
         </div>
       </header>
 
-      {/* Chat */}
       <div className="flex-1 flex flex-col">
         <ChatInterface
           messages={messages}
           onSendMessage={handleSendMessage}
           placeholder="Type your answer..."
           mascotImage="/images/onboarding-mascot.webp"
-          disabled={isTyping || isLastQuestion}
+          disabled={isTyping || isComplete}
           className="flex-1 rounded-none"
+          showTypingIndicator={isTyping}
         />
       </div>
 
-      {/* Progress indicator */}
       <div className="p-4 border-t border-border">
         <div className="flex items-center justify-between mb-2">
           <span className="text-xs text-muted-foreground">
-            Getting to know you
+            {isComplete ? "Complete!" : "Getting to know you"}
           </span>
-          <span className="text-xs text-primary">
-            {Math.min(currentQuestion + 1, ONBOARDING_QUESTIONS.length - 1)}/
-            {ONBOARDING_QUESTIONS.length - 1}
-          </span>
-        </div>
-        <div className="h-1.5 bg-secondary rounded-full overflow-hidden">
-          <div
-            className="h-full bg-primary transition-all duration-300"
-            style={{
-              width: `${(Math.min(currentQuestion + 1, ONBOARDING_QUESTIONS.length - 1) / (ONBOARDING_QUESTIONS.length - 1)) * 100}%`,
-            }}
-          />
         </div>
       </div>
     </div>
