@@ -4,10 +4,67 @@ from django.views.decorators.csrf import csrf_exempt
 from django.views.decorators.http import require_POST
 from django.contrib.auth.models import User
 from django.conf import settings
-from .models import UserProfile
+from .models import UserProfile, WorkoutSession
+from datetime import date, timedelta
 import json
 import google.genai as genai
 from google.genai import types
+
+
+def _save_workout_sessions(user, plan_data):
+    start_date_str = plan_data.get("start_date")
+    if not start_date_str:
+        start_date = date.today()
+    else:
+        start_date = date.fromisoformat(start_date_str)
+
+    today = date.today()
+    day_of_week_map = {
+        "monday": 0, "tuesday": 1, "wednesday": 2, "thursday": 3,
+        "friday": 4, "saturday": 5, "sunday": 6
+    }
+
+    months = plan_data.get("months", [])
+    total_weeks = 0
+
+    for month_idx, month in enumerate(months):
+        weeks = month.get("weeks", [])
+        for week_idx, week in enumerate(weeks):
+            sessions = week.get("sessions", [])
+            for session in sessions:
+                day_name = session.get("day", "").lower()
+                if day_name not in day_of_week_map:
+                    continue
+
+                target_weekday = day_of_week_map[day_name]
+                days_ahead = (target_weekday - start_date.weekday()) % 7
+                if total_weeks > 0:
+                    days_ahead = (total_weeks * 7) + ((target_weekday - start_date.weekday()) % 7)
+                elif days_ahead == 0 and start_date.weekday() != target_weekday:
+                    days_ahead = 7 - ((start_date.weekday() - target_weekday) % 7)
+
+                session_date = start_date + timedelta(days=days_ahead)
+                
+                if session_date < today:
+                    continue
+
+                week_num = total_weeks + week_idx + 1
+                month_num = month_idx + 1
+
+                WorkoutSession.objects.update_or_create(
+                    user=user,
+                    date=session_date,
+                    defaults={
+                        "type": session.get("type", "easy_run"),
+                        "duration": session.get("duration", "30 min"),
+                        "description": session.get("description", ""),
+                        "status": "planned",
+                        "week_number": week_num,
+                        "month_number": month_num,
+                    }
+                )
+
+            total_weeks += len(weeks)
 
 
 @csrf_exempt
@@ -87,6 +144,33 @@ def logout_view(request):
     return JsonResponse({"message": "Logged out successfully"})
 
 
+def workouts(request):
+    if not request.user.is_authenticated:
+        return JsonResponse({"error": "Not authenticated"}, status=401)
+
+    today = date.today()
+    workouts_qs = WorkoutSession.objects.filter(
+        user=request.user,
+        date__gte=today
+    ).order_by("date")
+
+    workouts_list = []
+    for w in workouts_qs:
+        workouts_list.append({
+            "id": w.id,
+            "date": w.date.isoformat(),
+            "type": w.type,
+            "duration": w.duration,
+            "description": w.description,
+            "status": w.status,
+            "completed_at": w.completed_at.isoformat() if w.completed_at else None,
+            "week_number": w.week_number,
+            "month_number": w.month_number,
+        })
+
+    return JsonResponse({"workouts": workouts_list})
+
+
 def me(request):
     if not request.user.is_authenticated:
         return JsonResponse({"error": "Not authenticated"}, status=401)
@@ -100,13 +184,23 @@ def me(request):
             "first_name": request.user.first_name,
             "last_name": request.user.last_name,
             "has_completed_onboarding": profile.has_completed_onboarding,
+            "plan": profile.goals,
+            "profile": {
+                "age": profile.age,
+                "weight": profile.weight,
+                "height": profile.height,
+                "fitness_goal": profile.fitness_goal,
+                "experience_level": profile.experience_level,
+                "training_days_per_week": profile.training_days_per_week,
+                "injuries": profile.injuries,
+            },
         }
     )
 
 
 SYSTEM_PROMPT = """You are a friendly running-focused fitness AI assistant helping users set up their personalized running training profile.
 
-Your goal is to collect the following information through natural conversation:
+Collect the following information through natural conversation:
 1. Age
 2. Weight (in kg)
 3. Height (in cm)
@@ -118,20 +212,48 @@ Your goal is to collect the following information through natural conversation:
 Rules:
 - Ask one question at a time
 - Be conversational and friendly
-- After collecting all 7 pieces of information, respond with EXACTLY: "ONBOARDING_COMPLETE"
-- When user provides partial info (like just a number), acknowledge it and ask the next question
-- If user mentions injuries/limitations affecting running, note them
+- After collecting all 7 pieces of information, generate a personalized 3-month running plan starting from TODAY's date ({current_date})
+- When user mentions injuries/limitations affecting running, note them
 
-Format your response as JSON with these fields:
+Generate the plan as JSON with this structure:
 {
-  "reply": "your conversational response to the user",
-  "extracted": {"field": "value"} - only include fields you've successfully extracted in this response,
-  "complete": false or true (true only when ALL 7 fields are collected)
+  "reply": "your congratulatory message to the user (DO NOT mention ONBOARDING_COMPLETE or any technical instructions)",
+  "extracted": {"field": "value"},
+  "complete": true,
+  "plan": {
+    "start_date": "CURRENT_DATE_PLACEHOLDER",
+    "months": [
+      {
+        "month": 1,
+        "focus": "base building / build endurance / speed work",
+        "weeks": [
+          {
+            "week": 1,
+            "sessions": [
+              {"day": "monday", "type": "easy_run", "duration": "20 min", "description": "conversational jog with walk breaks"},
+              {"day": "wednesday", "type": "intervals", "duration": "25 min", "description": "5x1min run, 1min walk"},
+              {"day": "saturday", "type": "long_run", "duration": "30 min", "description": "easy continuous run"}
+            ]
+          }
+        ]
+      }
+    ]
+  }
 }
 
+Adjust sessions based on experience_level:
+- beginner: walk/run intervals, start with 20-30 min
+- short_distance: 1-3km easy runs, 25-35 min
+- intermediate: pace work, tempo runs, 30-50 min
+- advanced: marathon prep, speed work, hill repeats, 45-90 min
+
+Adjust number of sessions to training_days_per_week available.
+Adjust focus to fitness_goal (first_5k, improve_speed, marathon, endurance, weight_loss).
+Modify sessions if injuries noted.
+
 Extracted field names must be exactly: age, weight, height, fitness_goal, experience_level, training_days_per_week, injuries
-For fitness_goal use: first_5k, improve_speed, marathon, endurance, weight_loss, or your own descriptive running goal
-For experience_level use: beginner (never run), short_distance (can run 1-3km), intermediate, advanced
+For fitness_goal use: first_5k, improve_speed, marathon, endurance, weight_loss, or descriptive running goal
+For experience_level use: beginner, short_distance, intermediate, advanced
 """
 
 
@@ -158,11 +280,17 @@ def onboarding_chat(request):
         user_message = data.get("message", "")
         history = data.get("history", [])
 
+        from datetime import date
+        current_date = date.today().strftime("%Y-%m-%d")
+
+        system_prompt = SYSTEM_PROMPT.replace("CURRENT_DATE_PLACEHOLDER", current_date)
+
         print("=" * 50)
         print("INCOMING REQUEST")
         print(f"User: {request.user.username}")
         print(f"Message: {user_message}")
         print(f"History length: {len(history)}")
+        print(f"Current date: {current_date}")
         print("=" * 50)
 
         if not settings.GEMINI_API_KEY:
@@ -171,7 +299,7 @@ def onboarding_chat(request):
         client = genai.Client(api_key=settings.GEMINI_API_KEY)
 
         conversation = [
-            types.Content(role="user", parts=[types.Part(text=SYSTEM_PROMPT)])
+            types.Content(role="user", parts=[types.Part(text=system_prompt)])
         ]
         for msg in history:
             role = "user" if msg.get("sender") == "user" else "model"
@@ -249,6 +377,11 @@ def onboarding_chat(request):
 
         if result.get("complete"):
             profile.has_completed_onboarding = True
+            
+            plan_data = result.get("plan")
+            if plan_data:
+                profile.goals = plan_data
+                _save_workout_sessions(request.user, plan_data)
 
         profile.save()
 
@@ -272,6 +405,7 @@ def onboarding_chat(request):
             {
                 "reply": result.get("reply", ""),
                 "complete": result.get("complete", False),
+                "plan": result.get("plan"),
                 "profile": {
                     "age": profile.age,
                     "weight": profile.weight,

@@ -37,31 +37,25 @@ export function TwoWeekCalendar({
 
   const days = useMemo(() => {
     const today = new Date();
+    today.setHours(0, 0, 0, 0);
     const dayNames = ["MON", "TUE", "WED", "THU", "FRI", "SAT", "SUN"];
     const result: DayInfo[] = [];
 
-    // Get the Monday of current week
-    const currentDay = today.getDay();
-    const monday = new Date(today);
-    monday.setDate(today.getDate() - (currentDay === 0 ? 6 : currentDay - 1));
-
-    // Generate 14 days (2 weeks)
     for (let i = 0; i < 14; i++) {
-      const date = new Date(monday);
-      date.setDate(monday.getDate() + i);
+      const date = new Date(today);
+      date.setDate(today.getDate() + i);
 
       const dateKey = formatDateKey(date);
       const training = trainingData.find((t) => t.date === dateKey);
+
+      const isTodayDate = date.getTime() === today.getTime();
 
       result.push({
         date,
         dayName: dayNames[date.getDay()],
         dayNumber: date.getDate(),
-        isToday:
-          date.getDate() === today.getDate() &&
-          date.getMonth() === today.getMonth() &&
-          date.getFullYear() === today.getFullYear(),
-        isPast: date < today && !result[result.length - 1]?.isToday,
+        isToday: isTodayDate,
+        isPast: false,
         training,
       });
     }

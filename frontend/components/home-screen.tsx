@@ -4,7 +4,7 @@ import { LiveSession } from "@/components/live-session";
 import { TrainingCard } from "@/components/training-card";
 import { TwoWeekCalendar } from "@/components/two-week-calendar";
 import { ArrowLeft, LogOut, Menu, Settings, User, X } from "lucide-react";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 
 interface TrainingDay {
   date: string;
@@ -34,6 +34,7 @@ export function HomeScreen({ userName = "User", onLogout }: HomeScreenProps) {
   const [showFullCalendar, setShowFullCalendar] = useState(false);
   const [isTraining, setIsTraining] = useState(false);
   const [chatFullscreen, setChatFullscreen] = useState(false);
+  const [trainingData, setTrainingData] = useState<TrainingDay[]>([]);
   const [messages, setMessages] = useState<Message[]>([
     {
       id: "welcome",
@@ -43,82 +44,22 @@ export function HomeScreen({ userName = "User", onLogout }: HomeScreenProps) {
     },
   ]);
 
-  // Mock training data - in a real app this would come from an API
-  const trainingData: TrainingDay[] = useMemo(() => {
-    const today = new Date();
-    const data: TrainingDay[] = [];
-
-    // Generate sample training data for the current month
-    for (let i = -14; i < 30; i++) {
-      const date = new Date(today);
-      date.setDate(today.getDate() + i);
-      const dateKey = formatDateKey(date);
-
-      // Skip some days randomly for variety
-      if (Math.random() > 0.7 && i !== 0) continue;
-
-      const isPast = i < 0;
-      const isRestDay = date.getDay() === 0 || date.getDay() === 3; // Sunday and Wednesday are rest days
-
-      if (isRestDay) {
-        data.push({
-          date: dateKey,
-          type: "rest",
-          title: "Rest Day",
-          description: "Recovery is important for progress",
-        });
-      } else if (isPast) {
-        data.push({
-          date: dateKey,
-          type: "completed",
-          title: "Running Session",
-          description: "Interval training",
-          duration: "45 min",
-          exercises: ["Warm-up 5 min", "5x 400m sprints", "Cool-down 10 min"],
-        });
-      } else {
-        const workouts = [
-          {
-            title: "Interval Training",
-            description: "8x400m at 5K pace",
-            duration: "45 min",
-            exercises: [
-              "Warm-up 10 min easy",
-              "8x400m (90s rest)",
-              "Cool-down 10 min",
-            ],
-          },
-          {
-            title: "Long Run",
-            description: "Endurance building",
-            duration: "60 min",
-            exercises: [
-              "Warm-up 10 min",
-              "Easy pace 40 min",
-              "Cool-down 10 min",
-            ],
-          },
-          {
-            title: "Tempo Run",
-            description: "Threshold training",
-            duration: "35 min",
-            exercises: [
-              "Warm-up 10 min",
-              "20 min at threshold",
-              "Cool-down 5 min",
-            ],
-          },
-        ];
-        const workout = workouts[Math.floor(Math.random() * workouts.length)];
-        data.push({
-          date: dateKey,
-          type: "workout",
-          ...workout,
-        });
-      }
-    }
-
-    return data;
+  useEffect(() => {
+    fetch("http://localhost:3000/api/auth/workouts/", { credentials: "include" })
+      .then(res => res.json())
+      .then(data => {
+        const workouts = (data.workouts || []).map((w: any) => ({
+          date: w.date,
+          type: w.status === "completed" ? "completed" : w.type === "rest" ? "rest" : "workout",
+          title: w.type.replace("_", " ").replace(/\b\w/g, (c: string) => c.toUpperCase()),
+          description: w.description,
+          duration: w.duration,
+        }));
+        setTrainingData(workouts);
+      })
+      .catch(() => {
+        setTrainingData([]);
+      });
   }, []);
 
   // Get training for selected date
