@@ -22,7 +22,7 @@ export function OnboardingChat({ onComplete, onBack }: OnboardingChatProps) {
   const [isComplete, setIsComplete] = useState(false);
   const [retryCount, setRetryCount] = useState(0);
 
-  const sendChatRequest = async (message: string, hist: ChatHistoryItem[], attempt = 0): Promise<any> => {
+const sendChatRequest = async (message: string, hist: ChatHistoryItem[], attempt = 0): Promise<any> => {
     const res = await fetch("http://localhost:3000/api/auth/onboarding/chat/", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -46,6 +46,61 @@ export function OnboardingChat({ onComplete, onBack }: OnboardingChatProps) {
     throw new Error(data.error || "Request failed");
   };
 
+  const handleSendMessage = async (content: string) => {
+    setMessages((prev) => [
+      ...prev,
+      {
+        id: `user-${Date.now()}`,
+        content,
+        sender: "user",
+        timestamp: new Date(),
+      },
+    ]);
+
+    const newHistory = [...history, { sender: "user" as const, content }];
+    setHistory(newHistory);
+
+    setIsTyping(true);
+    try {
+      const data = await sendChatRequest(content, history);
+
+      let replyContent = data.reply || "";
+      
+      // If reply contains embedded JSON, extract just the message part
+      try {
+        const replyJson = JSON.parse(replyContent);
+        if (replyJson.reply) {
+          replyContent = replyJson.reply;
+        }
+      } catch {
+        // Not JSON, use as-is
+      }
+
+      if (replyContent) {
+        setMessages((prev) => [
+          ...prev,
+          {
+            id: `assistant-${Date.now()}`,
+            content: replyContent,
+            sender: "assistant",
+            timestamp: new Date(),
+          },
+        ]);
+        setHistory((prev) => [...prev, { sender: "assistant" as const, content: replyContent }]);
+      }
+
+      if (data.complete) {
+        setIsComplete(true);
+        setTimeout(() => {
+          onComplete(newHistory.map(h => h.content));
+        }, 1500);
+      }
+    } catch (e) {
+      console.error(e);
+    }
+    setIsTyping(false);
+  };
+
   useEffect(() => {
     const timer = setTimeout(async () => {
       setIsTyping(true);
@@ -66,49 +121,6 @@ export function OnboardingChat({ onComplete, onBack }: OnboardingChatProps) {
     }, 500);
     return () => clearTimeout(timer);
   }, []);
-
-  const handleSendMessage = async (content: string) => {
-    setMessages((prev) => [
-      ...prev,
-      {
-        id: `user-${Date.now()}`,
-        content,
-        sender: "user",
-        timestamp: new Date(),
-      },
-    ]);
-
-    const newHistory = [...history, { sender: "user" as const, content }];
-    setHistory(newHistory);
-
-    setIsTyping(true);
-    try {
-      const data = await sendChatRequest(content, history);
-
-      if (data.reply) {
-        setMessages((prev) => [
-          ...prev,
-          {
-            id: `assistant-${Date.now()}`,
-            content: data.reply,
-            sender: "assistant",
-            timestamp: new Date(),
-          },
-        ]);
-        setHistory((prev) => [...prev, { sender: "assistant" as const, content: data.reply }]);
-      }
-
-      if (data.complete) {
-        setIsComplete(true);
-        setTimeout(() => {
-          onComplete(newHistory.map(h => h.content));
-        }, 1500);
-      }
-    } catch (e) {
-      console.error(e);
-    }
-    setIsTyping(false);
-  };
 
   return (
     <div className="min-h-screen bg-background flex flex-col">
