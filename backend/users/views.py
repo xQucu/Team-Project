@@ -14,7 +14,7 @@ from .prompts import get_system_prompt
 from .services import save_workout_sessions, get_user_workouts, format_workout_for_api
 from .models import UserProfile, WorkoutSession
 
-CHAT_MODEL = "gemini-2.0-flash"
+CHAT_MODEL = "gemini-flash-latest"
 
 
 @csrf_exempt
@@ -296,7 +296,11 @@ def chat(request):
         user_message = data.get("message", "")
 
         # Get user context for the prompt
-        from .services import get_user_chat_context, apply_workout_modification, delete_workout
+        from .services import (
+            get_user_chat_context,
+            apply_workout_modification,
+            delete_workout,
+        )
 
         user_context = get_user_chat_context(request.user)
 
@@ -370,7 +374,7 @@ def chat(request):
             for mod in modifications:
                 workout_id = mod.get("workout_id")
                 action = mod.get("action", "modify")
-                
+
                 if action == "delete" and workout_id:
                     mod_result = delete_workout(request.user, workout_id)
                     if mod_result.get("success"):
@@ -414,4 +418,3 @@ def chat(request):
     except Exception as e:
         print(f"Chat error: {str(e)}")
         return JsonResponse({"error": str(e)}, status=500)
-
