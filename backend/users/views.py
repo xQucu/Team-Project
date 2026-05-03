@@ -294,7 +294,7 @@ def chat(request):
         user_message = data.get("message", "")
 
         # Get user context for the prompt
-        from .services import get_user_chat_context, apply_workout_modification
+        from .services import get_user_chat_context, apply_workout_modification, delete_workout
 
         user_context = get_user_chat_context(request.user)
 
@@ -354,7 +354,7 @@ def chat(request):
 
         print(f"Parsed result: {result}")
 
-        reply = result.get("reply", "I'm here to help with your training!")
+        reply = result.get("reply") or "I've updated your training plan!"
 
         # Handle modifications - check if this is a clear or vague command
         modifications = result.get("modifications", [])
@@ -367,7 +367,13 @@ def chat(request):
         if modifications:
             for mod in modifications:
                 workout_id = mod.get("workout_id")
-                if workout_id:
+                action = mod.get("action", "modify")
+                
+                if action == "delete" and workout_id:
+                    mod_result = delete_workout(request.user, workout_id)
+                    if mod_result.get("success"):
+                        applied_modifications.append(mod_result)
+                elif workout_id:
                     mod_result = apply_workout_modification(
                         request.user,
                         workout_id,
@@ -378,7 +384,8 @@ def chat(request):
                     )
                     if mod_result.get("success"):
                         applied_modifications.append(mod_result)
-            reply = None
+            if applied_modifications:
+                reply = reply or "I've updated your training plan!"
 
         elif proposals:
             confirmation_needed = {

@@ -167,6 +167,11 @@ A) CLEAR COMMANDS - If user specifies EXACTLY what to change:
 - Action: Apply the change DIRECTLY without asking for confirmation
 - Response format: Apply these changes in the "modifications" field as a JSON array
 
+A2) DELETE COMMANDS - If user wants to REMOVE a workout:
+- Examples: "remove my wednesday run", "delete saturday's workout", "cancel that workout"
+- Action: Delete the workout DIRECTLY using "action": "delete" in modifications
+- Response format: {{"modifications": [{{"workout_id": 123, "action": "delete"}}]}}
+
 B) VAGUE REQUESTS - If user gives GENERAL direction:
 - Examples: "i want my training to be harder", "make my workouts longer", "i need more rest", "give me more challenging workouts"
 - Action: First PROPOSE a specific change, ASK for confirmation before applying
