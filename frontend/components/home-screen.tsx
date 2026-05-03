@@ -34,6 +34,7 @@ export function HomeScreen({ userName = "User", onLogout }: HomeScreenProps) {
   const [showFullCalendar, setShowFullCalendar] = useState(false);
   const [isTraining, setIsTraining] = useState(false);
   const [chatFullscreen, setChatFullscreen] = useState(false);
+  const [isTyping, setIsTyping] = useState(false);
   const [trainingData, setTrainingData] = useState<TrainingDay[]>([]);
   const [messages, setMessages] = useState<Message[]>([
     {
@@ -43,6 +44,7 @@ export function HomeScreen({ userName = "User", onLogout }: HomeScreenProps) {
       timestamp: new Date(),
     },
   ]);
+  const [history, setHistory] = useState<{sender: "user" | "assistant"; content: string}[]>([]);
 
   useEffect(() => {
     fetch("http://localhost:3000/api/auth/workouts/", { credentials: "include" })
@@ -74,7 +76,7 @@ export function HomeScreen({ userName = "User", onLogout }: HomeScreenProps) {
     return training;
   }, [selectedDate, trainingData]);
 
-  const handleSendMessage = (content: string) => {
+  const handleSendMessage = async (content: string) => {
     setMessages((prev) => [
       ...prev,
       {
@@ -86,27 +88,100 @@ export function HomeScreen({ userName = "User", onLogout }: HomeScreenProps) {
     ]);
 
     setChatFullscreen(true);
+    setIsTyping(true);
 
-    setTimeout(() => {
-      const responses = [
-        "I'm here to help with your training! What would you like to know?",
-        "Great question! Let me help you with that.",
-        "I can assist you with workout modifications, nutrition tips, or schedule adjustments. What do you need?",
-        "Let me check your training plan and get back to you!",
-      ];
-      const randomResponse =
-        responses[Math.floor(Math.random() * responses.length)];
+    try {
+      const res = await fetch("http://localhost:3000/api/auth/chat/", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ 
+          message: content,
+          history: history
+        }),
+        credentials: "include",
+      });
 
+      const data = await res.json();
+
+      let replyContent = "";
+
+      // Handle different response formats - reply can be string or object
+      if (typeof data.reply === 'string') {
+        // Try to parse if it's a JSON string
+        try {
+          const parsed = JSON.parse(data.reply);
+          replyContent = parsed.reply || data.reply;
+        } catch {
+          replyContent = data.reply;
+        }
+      } else if (typeof data.reply === 'object' && data.reply !== null) {
+        // Already parsed - extract inner reply
+        replyContent = data.reply.reply || JSON.stringify(data.reply);
+      }
+
+      if (replyContent) {
+        setMessages((prev) => [
+          ...prev,
+          {
+            id: `assistant-${Date.now()}`,
+            content: replyContent,
+            sender: "assistant",
+            timestamp: new Date(),
+          },
+        ]);
+      }
+
+      // If confirmation is needed, show it (don't duplicate reply - reply already shown above)
+      if (data.confirmation_needed) {
+        setMessages((prev) => [
+          ...prev,
+          {
+            id: `confirmation-${Date.now()}`,
+            content: "Should I make this change? (Yes/No)",
+            sender: "assistant",
+            timestamp: new Date(),
+            requires_confirmation: true,
+            confirmation_data: data.confirmation_needed,
+          },
+        ]);
+      }
+
+      // Refresh workout data if modifications or new workouts
+      if ((data.modifications_applied && data.modifications_applied.length > 0) || (data.newly_created > 0)) {
+        fetch("http://localhost:3000/api/auth/workouts/", { credentials: "include" })
+          .then(res => res.json())
+          .then(workoutData => {
+            const workouts = (workoutData.workouts || []).map((w: any) => ({
+              date: w.date,
+              type: w.status === "completed" ? "completed" : w.type === "rest" ? "rest" : "workout",
+              title: w.type.replace("_", " ").replace(/\b\w/g, (c: string) => c.toUpperCase()),
+              description: w.description,
+              duration: w.duration,
+            }));
+            setTrainingData(workouts);
+          });
+      }
+
+      // Update history for next message
+      setHistory(prev => [
+        ...prev,
+        { sender: 'user', content },
+        { sender: 'assistant', content: replyContent }
+      ]);
+    } catch (e) {
+      console.error("Chat error:", e);
       setMessages((prev) => [
         ...prev,
         {
           id: `assistant-${Date.now()}`,
-          content: randomResponse,
+          content: "I apologize, something went wrong. Please try again.",
           sender: "assistant",
           timestamp: new Date(),
         },
       ]);
-    }, 1000);
+    }
+
+    setIsTyping(false);
   };
 
   const handleDateSelectFromCalendar = (date: Date) => {

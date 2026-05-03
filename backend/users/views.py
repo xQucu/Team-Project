@@ -20,36 +20,38 @@ from .models import UserProfile, WorkoutSession
 def register(request):
     try:
         data = json.loads(request.body)
-        email = data.get('email', '').strip().lower()
-        password = data.get('password', '')
-        first_name = data.get('first_name', '').strip()
-        last_name = data.get('last_name', '').strip()
+        email = data.get("email", "").strip().lower()
+        password = data.get("password", "")
+        first_name = data.get("first_name", "").strip()
+        last_name = data.get("last_name", "").strip()
 
         if not email or not password or not first_name:
-            return JsonResponse({'error': 'Missing required fields'}, status=400)
+            return JsonResponse({"error": "Missing required fields"}, status=400)
 
         if User.objects.filter(username=email).exists():
-            return JsonResponse({'error': 'Email already registered'}, status=400)
+            return JsonResponse({"error": "Email already registered"}, status=400)
 
         user = User.objects.create_user(
             username=email,
             email=email,
             password=password,
             first_name=first_name,
-            last_name=last_name
+            last_name=last_name,
         )
 
         login(request, user)
 
-        return JsonResponse({
-            'id': user.id,
-            'email': user.email,
-            'first_name': user.first_name,
-            'last_name': user.last_name,
-            'has_completed_onboarding': False,
-        })
+        return JsonResponse(
+            {
+                "id": user.id,
+                "email": user.email,
+                "first_name": user.first_name,
+                "last_name": user.last_name,
+                "has_completed_onboarding": False,
+            }
+        )
     except Exception as e:
-        return JsonResponse({'error': str(e)}, status=500)
+        return JsonResponse({"error": str(e)}, status=500)
 
 
 @csrf_exempt
@@ -57,87 +59,93 @@ def register(request):
 def login_view(request):
     try:
         data = json.loads(request.body)
-        email = data.get('email', '').strip().lower()
-        password = data.get('password', '')
+        email = data.get("email", "").strip().lower()
+        password = data.get("password", "")
 
         if not email or not password:
-            return JsonResponse({'error': 'Missing credentials'}, status=400)
+            return JsonResponse({"error": "Missing credentials"}, status=400)
 
         user = authenticate(request, username=email, password=password)
         if user is None:
-            return JsonResponse({'error': 'Invalid credentials'}, status=401)
+            return JsonResponse({"error": "Invalid credentials"}, status=401)
 
         login(request, user)
-        
+
         profile = user.profile
 
-        return JsonResponse({
-            'id': user.id,
-            'email': user.email,
-            'first_name': user.first_name,
-            'last_name': user.last_name,
-            'has_completed_onboarding': profile.has_completed_onboarding
-        })
+        return JsonResponse(
+            {
+                "id": user.id,
+                "email": user.email,
+                "first_name": user.first_name,
+                "last_name": user.last_name,
+                "has_completed_onboarding": profile.has_completed_onboarding,
+            }
+        )
     except Exception as e:
-        return JsonResponse({'error': str(e)}, status=500)
+        return JsonResponse({"error": str(e)}, status=500)
 
 
 @require_POST
 def logout_view(request):
     logout(request)
-    return JsonResponse({'message': 'Logged out successfully'})
+    return JsonResponse({"message": "Logged out successfully"})
 
 
 def workouts(request):
     if not request.user.is_authenticated:
-        return JsonResponse({'error': 'Not authenticated'}, status=401)
+        return JsonResponse({"error": "Not authenticated"}, status=401)
 
     today = date.today()
     workouts_qs = get_user_workouts(request.user, today)
 
     workouts_list = [format_workout_for_api(w) for w in workouts_qs]
 
-    return JsonResponse({'workouts': workouts_list})
+    return JsonResponse({"workouts": workouts_list})
 
 
 def me(request):
     if not request.user.is_authenticated:
-        return JsonResponse({'error': 'Not authenticated'}, status=401)
+        return JsonResponse({"error": "Not authenticated"}, status=401)
 
     profile = request.user.profile
 
-    return JsonResponse({
-        'id': request.user.id,
-        'email': request.user.email,
-        'first_name': request.user.first_name,
-        'last_name': request.user.last_name,
-        'has_completed_onboarding': profile.has_completed_onboarding,
-        'profile': {
-            'age': profile.age,
-            'weight': profile.weight,
-            'height': profile.height,
-            'fitness_goal': profile.fitness_goal,
-            'experience_level': profile.experience_level,
-            'training_days_per_week': profile.training_days_per_week,
-            'injuries': profile.injuries,
-        },
-    })
+    return JsonResponse(
+        {
+            "id": request.user.id,
+            "email": request.user.email,
+            "first_name": request.user.first_name,
+            "last_name": request.user.last_name,
+            "has_completed_onboarding": profile.has_completed_onboarding,
+            "profile": {
+                "age": profile.age,
+                "weight": profile.weight,
+                "height": profile.height,
+                "fitness_goal": profile.fitness_goal,
+                "experience_level": profile.experience_level,
+                "training_days_per_week": profile.training_days_per_week,
+                "injuries": profile.injuries,
+            },
+        }
+    )
 
 
 @csrf_exempt
 @require_POST
 def onboarding_chat(request):
     if not request.user.is_authenticated:
-        return JsonResponse({'error': 'Not authenticated'}, status=401)
+        return JsonResponse({"error": "Not authenticated"}, status=401)
 
     try:
         data = json.loads(request.body)
-        user_message = data.get('message', '')
-        history = data.get('history', [])
+        user_message = data.get("message", "")
+        history = data.get("history", [])
 
         current_date = date.today().strftime("%Y-%m-%d")
 
-        system_prompt = get_system_prompt().replace("CURRENT_DATE_PLACEHOLDER", current_date)
+        system_prompt = get_system_prompt().replace(
+            "CURRENT_DATE_PLACEHOLDER", current_date
+        )
 
         print("=" * 50)
         print("INCOMING REQUEST")
@@ -148,22 +156,22 @@ def onboarding_chat(request):
         print("=" * 50)
 
         if not settings.GEMINI_API_KEY:
-            return JsonResponse({'error': 'GEMINI_API_KEY not configured'}, status=500)
+            return JsonResponse({"error": "GEMINI_API_KEY not configured"}, status=500)
 
         client = genai.Client(api_key=settings.GEMINI_API_KEY)
 
         conversation = [
-            types.Content(role='user', parts=[types.Part(text=system_prompt)])
+            types.Content(role="user", parts=[types.Part(text=system_prompt)])
         ]
         for msg in history:
-            role = 'user' if msg.get('sender') == 'user' else 'model'
+            role = "user" if msg.get("sender") == "user" else "model"
             conversation.append(
                 types.Content(
-                    role=role, parts=[types.Part(text=msg.get('content', ''))]
+                    role=role, parts=[types.Part(text=msg.get("content", ""))]
                 )
             )
         conversation.append(
-            types.Content(role='user', parts=[types.Part(text=user_message)])
+            types.Content(role="user", parts=[types.Part(text=user_message)])
         )
 
         print("SENDING TO GEMINI:")
@@ -173,7 +181,7 @@ def onboarding_chat(request):
 
         try:
             response = client.models.generate_content(
-                model="gemini-2.5-flash-lite", contents=conversation
+                model="gemini-2.5-flash", contents=conversation
             )
             print("GEMINI RESPONSE:")
             print(f"Raw: {response.text}")
@@ -231,7 +239,7 @@ def onboarding_chat(request):
 
         if result.get("complete"):
             profile.has_completed_onboarding = True
-            
+
             plan_data = result.get("plan")
             if plan_data:
                 save_workout_sessions(request.user, plan_data)
@@ -273,3 +281,128 @@ def onboarding_chat(request):
 
     except Exception as e:
         return JsonResponse({"error": str(e)}, status=500)
+
+
+@csrf_exempt
+@require_POST
+def chat(request):
+    if not request.user.is_authenticated:
+        return JsonResponse({"error": "Not authenticated"}, status=401)
+
+    try:
+        data = json.loads(request.body)
+        user_message = data.get("message", "")
+
+        # Get user context for the prompt
+        from .services import get_user_chat_context, apply_workout_modification
+
+        user_context = get_user_chat_context(request.user)
+
+        # Get system prompt with user context
+        from .prompts import get_chat_system_prompt
+
+        system_prompt = get_chat_system_prompt(user_context)
+
+        history = data.get("history", [])
+
+        print("=" * 50)
+        print("CHAT REQUEST")
+        print(f"User: {request.user.username}")
+        print(f"Message: {user_message}")
+        print("=" * 50)
+
+        if not settings.GEMINI_API_KEY:
+            return JsonResponse({"error": "GEMINI_API_KEY not configured"}, status=500)
+
+        client = genai.Client(api_key=settings.GEMINI_API_KEY)
+
+        conversation = [
+            types.Content(role="user", parts=[types.Part(text=system_prompt)])
+        ]
+        for msg in history:
+            role = "user" if msg.get("sender") == "user" else "model"
+            conversation.append(
+                types.Content(
+                    role=role, parts=[types.Part(text=msg.get("content", ""))]
+                )
+            )
+        conversation.append(
+            types.Content(role="user", parts=[types.Part(text=user_message)])
+        )
+
+        try:
+            response = client.models.generate_content(
+                model="gemini-2.5-flash", contents=conversation
+            )
+            print("GEMINI RESPONSE:")
+            print(f"Raw: {response.text}")
+        except Exception as e:
+            print("GEMINI ERROR:")
+            print(f"Error type: {type(e).__name__}")
+            print(f"Error message: {str(e)}")
+            print("=" * 50)
+            error_str = str(e)
+            if "RESOURCE_EXHAUSTED" in error_str or "429" in error_str:
+                return JsonResponse(
+                    {"error": "quota_exceeded", "retry_after": 15}, status=429
+                )
+            return JsonResponse({"error": f"Gemini API error: {error_str}"}, status=500)
+        print("=" * 50)
+
+        # Parse response
+        result = parse_gemini_response(response.text)
+
+        print(f"Parsed result: {result}")
+
+        reply = result.get("reply", "I'm here to help with your training!")
+
+        # Handle modifications - check if this is a clear or vague command
+        modifications = result.get("modifications", [])
+        proposals = result.get("proposal", {})
+
+        applied_modifications = []
+        confirmation_needed = None
+        newly_created = 0
+
+        if modifications:
+            for mod in modifications:
+                workout_id = mod.get("workout_id")
+                if workout_id:
+                    mod_result = apply_workout_modification(
+                        request.user,
+                        workout_id,
+                        new_date=mod.get("new_date"),
+                        new_type=mod.get("new_type"),
+                        new_duration=mod.get("new_duration"),
+                        new_description=mod.get("new_description"),
+                    )
+                    if mod_result.get("success"):
+                        applied_modifications.append(mod_result)
+            reply = None
+
+        elif proposals:
+            confirmation_needed = {
+                "workout_id": proposals.get("workout_id"),
+                "proposed_change": proposals.get("change"),
+                "user_message": user_message,
+            }
+            reply = None
+
+        plan_data = result.get("plan")
+        if plan_data:
+            newly_created = save_workout_sessions(request.user, plan_data)
+            reply = reply or "I've created your new workout plan!"
+
+        return JsonResponse(
+            {
+                "reply": reply,
+                "modifications_applied": applied_modifications,
+                "confirmation_needed": confirmation_needed,
+                "newly_created": newly_created,
+            }
+        )
+
+    except Exception as e:
+        print(f"Chat error: {str(e)}")
+        return JsonResponse({"error": str(e)}, status=500)
+

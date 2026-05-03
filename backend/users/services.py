@@ -101,3 +101,86 @@ def format_workout_for_api(workout: WorkoutSession) -> dict:
         "week_number": workout.week_number,
         "month_number": workout.month_number,
     }
+
+
+def get_user_chat_context(user: User) -> dict:
+    """Get user profile and workout history for AI chat context."""
+    from .models import UserProfile
+    
+    profile = user.profile
+    
+    today = date.today()
+    
+    # Get upcoming workouts (next 14 days)
+    upcoming = WorkoutSession.objects.filter(
+        user=user,
+        date__gte=today,
+        date__lte=today + timedelta(days=14)
+    ).order_by('date')
+    
+    # Get past completed workouts (last 30 days)
+    past = WorkoutSession.objects.filter(
+        user=user,
+        date__lt=today,
+        status='completed'
+    ).order_by('-date')[:30]
+    
+    return {
+        'profile': {
+            'age': profile.age,
+            'weight': profile.weight,
+            'height': profile.height,
+            'fitness_goal': profile.fitness_goal,
+            'experience_level': profile.experience_level,
+            'training_days_per_week': profile.training_days_per_week,
+            'injuries': profile.injuries,
+        },
+        'upcoming': [format_workout_for_api(w) for w in upcoming],
+        'past': [format_workout_for_api(w) for w in past],
+    }
+
+
+def apply_workout_modification(user: User, workout_id: int, new_date: str = None, new_type: str = None, 
+                            new_duration: str = None, new_description: str = None) -> dict:
+    """Apply modification directly for clear commands."""
+    try:
+        workout = WorkoutSession.objects.get(id=workout_id, user=user)
+    except WorkoutSession.DoesNotExist:
+        return {'success': False, 'error': 'Workout not found'}
+    
+    if new_date:
+        workout.date = date.fromisoformat(new_date)
+    if new_type:
+        workout.type = new_type
+    if new_duration:
+        workout.duration = new_duration
+    if new_description:
+        workout.description = new_description
+    
+    workout.save()
+    
+    return {
+        'success': True, 
+        'message': f'Workout changed to {workout.date.strftime("%A %B %d")}',
+        'workout': format_workout_for_api(workout)
+    }
+
+
+def create_modification_proposal(user: User, workout_id: int, changes: dict) -> dict:
+    """Create a modification proposal for user confirmation."""
+    try:
+        workout = WorkoutSession.objects.get(id=workout_id, user=user)
+    except WorkoutSession.DoesNotExist:
+        return {'success': False, 'error': 'Workout not found'}
+    
+    return {
+        'success': True,
+        'proposal_id': f'proposal_{workout_id}_{int(today().strftime("%Y%m%d%H%M%S"))}',
+        'original': format_workout_for_api(workout),
+        'proposed': changes,
+        'requires_confirmation': True,
+    }
+
+
+def today():
+    return date.today()
