@@ -14,6 +14,8 @@ from .prompts import get_system_prompt
 from .services import save_workout_sessions, get_user_workouts, format_workout_for_api
 from .models import UserProfile, WorkoutSession
 
+CHAT_MODEL = "gemini-2.0-flash"
+
 
 @csrf_exempt
 @require_POST
@@ -181,7 +183,7 @@ def onboarding_chat(request):
 
         try:
             response = client.models.generate_content(
-                model="gemini-2.5-flash", contents=conversation
+                model=CHAT_MODEL, contents=conversation
             )
             print("GEMINI RESPONSE:")
             print(f"Raw: {response.text}")
@@ -332,7 +334,7 @@ def chat(request):
 
         try:
             response = client.models.generate_content(
-                model="gemini-2.5-flash", contents=conversation
+                model=CHAT_MODEL, contents=conversation
             )
             print("GEMINI RESPONSE:")
             print(f"Raw: {response.text}")
