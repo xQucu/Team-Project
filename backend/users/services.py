@@ -166,6 +166,22 @@ def apply_workout_modification(user: User, workout_id: int, new_date: str = None
     }
 
 
+def delete_workout(user: User, workout_id: int) -> dict:
+    """Delete a workout session."""
+    try:
+        workout = WorkoutSession.objects.get(id=workout_id, user=user)
+    except WorkoutSession.DoesNotExist:
+        return {'success': False, 'error': 'Workout not found'}
+    
+    workout_date = workout.date.strftime("%A %B %d")
+    workout.delete()
+    
+    return {
+        'success': True, 
+        'message': f'Workout on {workout_date} has been removed'
+    }
+
+
 def create_modification_proposal(user: User, workout_id: int, changes: dict) -> dict:
     """Create a modification proposal for user confirmation."""
     try:
