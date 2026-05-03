@@ -4,74 +4,15 @@ from django.views.decorators.csrf import csrf_exempt
 from django.views.decorators.http import require_POST
 from django.contrib.auth.models import User
 from django.conf import settings
-from .models import UserProfile, WorkoutSession
-from datetime import date, timedelta
+from datetime import date
 import json
 import google.genai as genai
 from google.genai import types
 
-
-def _save_workout_sessions(user, plan_data):
-    start_date_str = plan_data.get("start_date")
-    if not start_date_str:
-        start_date = date.today()
-    else:
-        start_date = date.fromisoformat(start_date_str)
-
-    today = date.today()
-    day_of_week_map = {
-        "monday": 0,
-        "tuesday": 1,
-        "wednesday": 2,
-        "thursday": 3,
-        "friday": 4,
-        "saturday": 5,
-        "sunday": 6,
-    }
-
-    months = plan_data.get("months", [])
-    total_weeks = 0
-
-    for month_idx, month in enumerate(months):
-        weeks = month.get("weeks", [])
-        for week_idx, week in enumerate(weeks):
-            sessions = week.get("sessions", [])
-            for session in sessions:
-                day_name = session.get("day", "").lower()
-                if day_name not in day_of_week_map:
-                    continue
-
-                target_weekday = day_of_week_map[day_name]
-                days_ahead = (target_weekday - start_date.weekday()) % 7
-                if total_weeks > 0:
-                    days_ahead = (total_weeks * 7) + (
-                        (target_weekday - start_date.weekday()) % 7
-                    )
-                elif days_ahead == 0 and start_date.weekday() != target_weekday:
-                    days_ahead = 7 - ((start_date.weekday() - target_weekday) % 7)
-
-                session_date = start_date + timedelta(days=days_ahead)
-
-                if session_date < today:
-                    continue
-
-                week_num = total_weeks + week_idx + 1
-                month_num = month_idx + 1
-
-                WorkoutSession.objects.update_or_create(
-                    user=user,
-                    date=session_date,
-                    defaults={
-                        "type": session.get("type", "easy_run"),
-                        "duration": session.get("duration", "30 min"),
-                        "description": session.get("description", ""),
-                        "status": "planned",
-                        "week_number": week_num,
-                        "month_number": month_num,
-                    },
-                )
-
-            total_weeks += len(weeks)
+from .parsers import parse_gemini_response
+from .prompts import get_system_prompt
+from .services import save_workout_sessions, get_user_workouts, format_workout_for_api
+from .models import UserProfile, WorkoutSession
 
 
 @csrf_exempt
@@ -79,38 +20,36 @@ def _save_workout_sessions(user, plan_data):
 def register(request):
     try:
         data = json.loads(request.body)
-        email = data.get("email", "").strip().lower()
-        password = data.get("password", "")
-        first_name = data.get("first_name", "").strip()
-        last_name = data.get("last_name", "").strip()
+        email = data.get('email', '').strip().lower()
+        password = data.get('password', '')
+        first_name = data.get('first_name', '').strip()
+        last_name = data.get('last_name', '').strip()
 
         if not email or not password or not first_name:
-            return JsonResponse({"error": "Missing required fields"}, status=400)
+            return JsonResponse({'error': 'Missing required fields'}, status=400)
 
         if User.objects.filter(username=email).exists():
-            return JsonResponse({"error": "Email already registered"}, status=400)
+            return JsonResponse({'error': 'Email already registered'}, status=400)
 
         user = User.objects.create_user(
             username=email,
             email=email,
             password=password,
             first_name=first_name,
-            last_name=last_name,
+            last_name=last_name
         )
 
         login(request, user)
 
-        return JsonResponse(
-            {
-                "id": user.id,
-                "email": user.email,
-                "first_name": user.first_name,
-                "last_name": user.last_name,
-                "has_completed_onboarding": False,
-            }
-        )
+        return JsonResponse({
+            'id': user.id,
+            'email': user.email,
+            'first_name': user.first_name,
+            'last_name': user.last_name,
+            'has_completed_onboarding': False,
+        })
     except Exception as e:
-        return JsonResponse({"error": str(e)}, status=500)
+        return JsonResponse({'error': str(e)}, status=500)
 
 
 @csrf_exempt
@@ -118,215 +57,87 @@ def register(request):
 def login_view(request):
     try:
         data = json.loads(request.body)
-        email = data.get("email", "").strip().lower()
-        password = data.get("password", "")
+        email = data.get('email', '').strip().lower()
+        password = data.get('password', '')
 
         if not email or not password:
-            return JsonResponse({"error": "Missing credentials"}, status=400)
+            return JsonResponse({'error': 'Missing credentials'}, status=400)
 
         user = authenticate(request, username=email, password=password)
         if user is None:
-            return JsonResponse({"error": "Invalid credentials"}, status=401)
+            return JsonResponse({'error': 'Invalid credentials'}, status=401)
 
         login(request, user)
-
+        
         profile = user.profile
 
-        return JsonResponse(
-            {
-                "id": user.id,
-                "email": user.email,
-                "first_name": user.first_name,
-                "last_name": user.last_name,
-                "has_completed_onboarding": profile.has_completed_onboarding,
-            }
-        )
+        return JsonResponse({
+            'id': user.id,
+            'email': user.email,
+            'first_name': user.first_name,
+            'last_name': user.last_name,
+            'has_completed_onboarding': profile.has_completed_onboarding
+        })
     except Exception as e:
-        return JsonResponse({"error": str(e)}, status=500)
+        return JsonResponse({'error': str(e)}, status=500)
 
 
 @require_POST
 def logout_view(request):
     logout(request)
-    return JsonResponse({"message": "Logged out successfully"})
+    return JsonResponse({'message': 'Logged out successfully'})
 
 
 def workouts(request):
     if not request.user.is_authenticated:
-        return JsonResponse({"error": "Not authenticated"}, status=401)
+        return JsonResponse({'error': 'Not authenticated'}, status=401)
 
     today = date.today()
-    workouts_qs = WorkoutSession.objects.filter(
-        user=request.user, date__gte=today
-    ).order_by("date")
+    workouts_qs = get_user_workouts(request.user, today)
 
-    workouts_list = []
-    for w in workouts_qs:
-        workouts_list.append(
-            {
-                "id": w.id,
-                "date": w.date.isoformat(),
-                "type": w.type,
-                "duration": w.duration,
-                "description": w.description,
-                "status": w.status,
-                "completed_at": w.completed_at.isoformat() if w.completed_at else None,
-                "week_number": w.week_number,
-                "month_number": w.month_number,
-            }
-        )
+    workouts_list = [format_workout_for_api(w) for w in workouts_qs]
 
-    return JsonResponse({"workouts": workouts_list})
+    return JsonResponse({'workouts': workouts_list})
 
 
 def me(request):
     if not request.user.is_authenticated:
-        return JsonResponse({"error": "Not authenticated"}, status=401)
+        return JsonResponse({'error': 'Not authenticated'}, status=401)
 
     profile = request.user.profile
 
-    return JsonResponse(
-        {
-            "id": request.user.id,
-            "email": request.user.email,
-            "first_name": request.user.first_name,
-            "last_name": request.user.last_name,
-            "has_completed_onboarding": profile.has_completed_onboarding,
-            "profile": {
-                "age": profile.age,
-                "weight": profile.weight,
-                "height": profile.height,
-                "fitness_goal": profile.fitness_goal,
-                "experience_level": profile.experience_level,
-                "training_days_per_week": profile.training_days_per_week,
-                "injuries": profile.injuries,
-            },
-        }
-    )
-
-
-SYSTEM_PROMPT = """You are a friendly running-focused fitness AI assistant helping users set up their personalized running training profile.
-
-Collect the following information through natural conversation:
-1. Age
-2. Weight (in kg)
-3. Height (in cm)
-4. Running goal (e.g., run first 5K, improve 5K time, run a marathon, build running endurance, lose weight through running)
-5. Running experience level (never run, can run short distances, intermediate runner, advanced runner or marathon ready)
-6. Training days per week available for running
-7. Any injuries or physical limitations affecting running
-
-Rules:
-- Ask one question at a time
-- Be conversational and friendly
-- After collecting all 7 pieces of information, generate a personalized 3-month running plan starting from TODAY's date ({current_date})
-- When user mentions injuries/limitations affecting running, note them
-
-CRITICAL: When user provides ONLY a number (like "19", "70", "175"), ALWAYS extract it into the "extracted" field. Example: user says "19" → extract {"age": 19}. NEVER ask for information user just provided.
-CRITICAL: For the FIRST user response after your greeting, ALWAYS extract any numbers provided. Do not assume it's just acknowledgment.
-
-EXAMPLES of correct responses when user provides a number:
-User: "19" 
-You MUST respond: {"reply": "Got it! Now tell me your weight in kg.", "extracted": {"age": 19}, "complete": false}
-
-User: "i am 19 years old" 
-You MUST respond: {"reply": "Got it! Now tell me your weight in kg.", "extracted": {"age": 19}, "complete": false}
-
-User: "70" 
-You MUST respond: {"reply": "Great! What's your height in cm?", "extracted": {"weight": 70}, "complete": false}
-
-User: "175" 
-You MUST respond: {"reply": "Perfect! What's your running goal?", "extracted": {"height": 175}, "complete": false}
-
-If user provides ANY number in their response, you MUST include it in the "extracted" field. Do NOT ask for information user just provided.
-
-Generate the plan as JSON with this structure:
-{
-  "reply": "your congratulatory message to the user (DO NOT mention ONBOARDING_COMPLETE or any technical instructions)",
-  "extracted": {"field": "value"},
-  "complete": true,
-  "plan": {
-    "start_date": "CURRENT_DATE_PLACEHOLDER",
-    "months": [
-      {
-        "month": 1,
-        "focus": "base building / build endurance / speed work",
-        "weeks": [
-          {
-            "week": 1,
-            "sessions": [
-              {"day": "wednesday", "type": "easy_run", "duration": "25 min", "description": " conversational jog with walk breaks"},
-              {"day": "saturday", "type": "long_run", "duration": "30 min", "description": "easy continuous run"}
-            ]
-          }
-        ]
-      }
-    ]
-  }
-}
-
-Adjust sessions based on experience_level:
-- beginner: walk/run intervals, start with 20-30 min
-- short_distance: 1-3km easy runs, 25-35 min
-- intermediate: pace work, tempo runs, 30-50 min
-- advanced: marathon prep, speed work, hill repeats, 45-90 min
-
-IMPORTANT: 
-- When user specifies X days per week, create X sessions for EVERY week (12 weeks total, 3 months)
-- Spread sessions evenly across each week
-- For 2x/week: one mid-week (e.g., Wednesday) and one weekend (e.g., Saturday)
-- For 3x/week: Monday, Wednesday, Saturday
-- For 4x/week: Tuesday, Thursday, Saturday, Sunday
-- NEVER cluster sessions then take weeks off - every week has X sessions!
-- Use these day names exactly: monday, tuesday, wednesday, thursday, friday, saturday, sunday
-
-Adjust number of sessions to training_days_per_week available.
-Adjust focus to fitness_goal (first_5k, improve_speed, marathon, endurance, weight_loss).
-Modify sessions if injuries noted.
-
-Extracted field names must be exactly: age, weight, height, fitness_goal, experience_level, training_days_per_week, injuries
-For fitness_goal use: first_5k, improve_speed, marathon, endurance, weight_loss, or descriptive running goal
-For experience_level use: beginner, short_distance, intermediate, advanced
-"""
-
-
-def parse_gemini_response(text: str) -> dict:
-    import re
-
-    # Try to find JSON in the response
-    try:
-        json_match = re.search(r"\{.*\}", text, re.DOTALL)
-        if json_match:
-            return json.loads(json_match.group())
-    except:
-        pass
-
-    # Fallback: check if there's a standalone number that could be data
-    numbers = re.findall(r'\b(\d{1,3})\b', text)
-    if numbers and len(numbers) == 1:
-        num = int(numbers[0])
-        if 10 <= num <= 150:
-            return {"reply": text, "extracted": {"age": num}, "complete": False}
-
-    return {"reply": text, "extracted": {}, "complete": False}
+    return JsonResponse({
+        'id': request.user.id,
+        'email': request.user.email,
+        'first_name': request.user.first_name,
+        'last_name': request.user.last_name,
+        'has_completed_onboarding': profile.has_completed_onboarding,
+        'profile': {
+            'age': profile.age,
+            'weight': profile.weight,
+            'height': profile.height,
+            'fitness_goal': profile.fitness_goal,
+            'experience_level': profile.experience_level,
+            'training_days_per_week': profile.training_days_per_week,
+            'injuries': profile.injuries,
+        },
+    })
 
 
 @csrf_exempt
 @require_POST
 def onboarding_chat(request):
     if not request.user.is_authenticated:
-        return JsonResponse({"error": "Not authenticated"}, status=401)
+        return JsonResponse({'error': 'Not authenticated'}, status=401)
 
     try:
         data = json.loads(request.body)
-        user_message = data.get("message", "")
-        history = data.get("history", [])
-
-        from datetime import date
+        user_message = data.get('message', '')
+        history = data.get('history', [])
 
         current_date = date.today().strftime("%Y-%m-%d")
 
-        system_prompt = SYSTEM_PROMPT.replace("CURRENT_DATE_PLACEHOLDER", current_date)
+        system_prompt = get_system_prompt().replace("CURRENT_DATE_PLACEHOLDER", current_date)
 
         print("=" * 50)
         print("INCOMING REQUEST")
@@ -337,22 +148,22 @@ def onboarding_chat(request):
         print("=" * 50)
 
         if not settings.GEMINI_API_KEY:
-            return JsonResponse({"error": "GEMINI_API_KEY not configured"}, status=500)
+            return JsonResponse({'error': 'GEMINI_API_KEY not configured'}, status=500)
 
         client = genai.Client(api_key=settings.GEMINI_API_KEY)
 
         conversation = [
-            types.Content(role="user", parts=[types.Part(text=system_prompt)])
+            types.Content(role='user', parts=[types.Part(text=system_prompt)])
         ]
         for msg in history:
-            role = "user" if msg.get("sender") == "user" else "model"
+            role = 'user' if msg.get('sender') == 'user' else 'model'
             conversation.append(
                 types.Content(
-                    role=role, parts=[types.Part(text=msg.get("content", ""))]
+                    role=role, parts=[types.Part(text=msg.get('content', ''))]
                 )
             )
         conversation.append(
-            types.Content(role="user", parts=[types.Part(text=user_message)])
+            types.Content(role='user', parts=[types.Part(text=user_message)])
         )
 
         print("SENDING TO GEMINI:")
@@ -362,7 +173,7 @@ def onboarding_chat(request):
 
         try:
             response = client.models.generate_content(
-                model="gemma-3-4b-it", contents=conversation
+                model="gemini-2.5-flash-lite", contents=conversation
             )
             print("GEMINI RESPONSE:")
             print(f"Raw: {response.text}")
@@ -423,7 +234,7 @@ def onboarding_chat(request):
             
             plan_data = result.get("plan")
             if plan_data:
-                _save_workout_sessions(request.user, plan_data)
+                save_workout_sessions(request.user, plan_data)
 
         profile.save()
 
