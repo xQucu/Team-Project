@@ -6,9 +6,22 @@ def parse_gemini_response(text: str) -> dict:
     """Parse Gemini response to extract JSON with user data."""
     # Try to find JSON in the response
     try:
-        json_match = re.search(r"\{.*\}", text, re.DOTALL)
+        json_match = re.search(r"\{[\s\S]*\}", text)
         if json_match:
             return json.loads(json_match.group())
+    except:
+        pass
+
+    # Try finding JSON array with modifications
+    try:
+        matches = re.findall(r"\[[\s\S]*\]", text)
+        for match in matches:
+            try:
+                parsed = json.loads(match)
+                if isinstance(parsed, list) and len(parsed) > 0:
+                    return {"reply": text, "modifications": parsed}
+            except:
+                continue
     except:
         pass
 

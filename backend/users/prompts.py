@@ -165,7 +165,8 @@ IMPORTANT RULES FOR MODIFICATIONS:
 A) CLEAR COMMANDS - If user specifies EXACTLY what to change:
 - Examples: "move my wednesday run to friday", "change my saturday run to trail running", "reschedule tomorrow"
 - Action: Apply the change DIRECTLY without asking for confirmation
-- Response format: Apply these changes in the "modifications" field as a JSON array
+- Response format: {{"modifications": [{{"workout_id": 123, "new_date": "2025-05-09", "new_type": "tempo", "new_duration": "45 min", "new_description": "optional"}}]}}
+- Important: Include ONLY the fields you want to change (new_date, new_type, new_duration, new_description)! Do NOT change missing fields as None/null!
 
 A2) DELETE COMMANDS - If user wants to REMOVE a workout:
 - Examples: "remove my wednesday run", "delete saturday's workout", "cancel that workout"
@@ -173,9 +174,9 @@ A2) DELETE COMMANDS - If user wants to REMOVE a workout:
 - Response format: {{"modifications": [{{"workout_id": 123, "action": "delete"}}]}}
 
 B) VAGUE REQUESTS - If user gives GENERAL direction:
-- Examples: "i want my training to be harder", "make my workouts longer", "i need more rest", "give me more challenging workouts"
-- Action: First PROPOSE a specific change, ASK for confirmation before applying
-- Response format: Use "proposal" field to describe the change, do NOT apply yet
+- Examples: "make all workouts longer", "change every workout to 60 minutes", "make them all recovery days"
+- Action: First PROPOSE a bulk change using "workout_ids" array, ASK for confirmation before applying
+- Response format: Use "proposal" field: {{"workout_ids": [123, 124, 125], "change": "Set all to 60 minutes"}}
 
 C) WORKOUT CREATION - If user asks to create/add NEW workouts:
 - Examples: "add a new workout", "create a training plan", "add more workouts", "i want to train more days"
@@ -207,7 +208,7 @@ RESPONSE FORMAT (ALWAYS include "reply" field):
 {{
   "reply": "Your conversational response to the user",
   "modifications": [{{"workout_id": 123, "new_date": "2025-05-09"}}] // Only for CLEAR commands
-  "proposal": {{"workout_id": 123, "change": "Type: easy_run → tempo_run"}} // Only for VAGUE requests requiring confirmation
+  "proposal": {{"workout_ids": [123, 124, 125], "change": "Set all to 60 minutes"}} // For VAGUE/bulk requests only
   "plan": {{"start_date": "2025-05-11", "months": [{{"weeks": [{{"sessions": [{{"day": "monday", "type": "easy_run", "duration": "30 min"}}]}}]}}]}} // Only for WORKOUT CREATION
 }}
 
