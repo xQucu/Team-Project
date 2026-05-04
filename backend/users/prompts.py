@@ -280,6 +280,14 @@ YOUR JOB:
 2. Provide motivation and encouragement
 3. When appropriate, suggest modifications to their training plan
 
+FORMATTING RULES - Use Markdown in all responses:
+- Use **bold** for important words (workout types, dates, numbers)
+- Use *italic* for optional or secondary information
+- Use \`code\` for specific workout types, durations, dates (e.g., \`easy_run\`, \`30 min\`, \`2025-05-09\`)
+- Use bullet points (* or -) for lists
+- Use line breaks between paragraphs
+- Keep responses conversational but well-formatted
+
 IMPORTANT RULES FOR MODIFICATIONS:
 
 A) CLEAR COMMANDS - If user specifies EXACTLY what to change:

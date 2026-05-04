@@ -2,6 +2,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Send } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
+import ReactMarkdown from "react-markdown";
 
 export interface Message {
   id: string;
@@ -93,7 +94,13 @@ export function ChatInterface({
                   : "bg-muted text-foreground rounded-bl-md"
               }`}
             >
-              <p className="text-sm leading-relaxed">{message.content}</p>
+              {message.sender === "assistant" ? (
+                <div className="text-sm leading-relaxed">
+                  <MarkdownContent content={message.content} />
+                </div>
+              ) : (
+                <p className="text-sm leading-relaxed">{message.content}</p>
+              )}
             </div>
           </div>
         ))}
@@ -139,4 +146,28 @@ export function ChatInterface({
       </form>
     </div>
   );
+}
+
+function MarkdownContent({ content }: { content: string }) {
+  try {
+    return (
+      <ReactMarkdown
+        components={{
+          p: ({ node, ...props }) => <p className="mb-2" {...props} />,
+          ul: ({ node, ...props }) => <ul className="list-disc pl-4 mb-2" {...props} />,
+          ol: ({ node, ...props }) => <ol className="list-decimal pl-4 mb-2" {...props} />,
+          li: ({ node, ...props }) => <li className="mb-1" {...props} />,
+          strong: ({ node, ...props }) => <strong className="font-bold" {...props} />,
+          em: ({ node, ...props }) => <em className="italic" {...props} />,
+          code: ({ node, inline, className, ...props }) => inline 
+            ? <code className="bg-secondary px-1 rounded text-xs" {...props} />
+            : <code className="bg-secondary block p-2 rounded text-xs" {...props} />,
+        }}
+      >
+        {String(content)}
+      </ReactMarkdown>
+    );
+  } catch {
+    return <p className="text-sm">{content}</p>;
+  }
 }

@@ -245,6 +245,7 @@ export function HomeScreen({ userName = "User", onLogout, theme = "dark", onTogg
             placeholder="Ask me anything..."
             mascotImage="/images/login-mascot.webp"
             className="flex-1 rounded-none"
+            showTypingIndicator={isTyping}
           />
         </div>
       </div>
@@ -307,6 +308,7 @@ export function HomeScreen({ userName = "User", onLogout, theme = "dark", onTogg
           placeholder="Ask me anything..."
           mascotImage="/images/login-mascot.webp"
           className="h-80"
+          showTypingIndicator={isTyping}
         />
       </main>
 
