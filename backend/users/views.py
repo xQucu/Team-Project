@@ -14,7 +14,7 @@ from .prompts import get_system_prompt
 from .services import save_workout_sessions, get_user_workouts, format_workout_for_api
 from .models import UserProfile, WorkoutSession
 
-CHAT_MODEL = "gemini-flash-latest"
+CHAT_MODEL = "gemini-3.1-flash-lite-preview"
 
 
 @csrf_exempt
