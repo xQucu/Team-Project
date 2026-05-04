@@ -159,9 +159,12 @@ function MarkdownContent({ content }: { content: string }) {
           li: ({ node, ...props }) => <li className="mb-1" {...props} />,
           strong: ({ node, ...props }) => <strong className="font-bold" {...props} />,
           em: ({ node, ...props }) => <em className="italic" {...props} />,
-          code: ({ node, inline, className, ...props }) => inline 
-            ? <code className="bg-secondary px-1 rounded text-xs" {...props} />
-            : <code className="bg-secondary block p-2 rounded text-xs" {...props} />,
+          code: ({ node, className, ...props }) => {
+            const isInline = !className?.includes('block');
+            return isInline
+              ? <code className="bg-secondary px-1 rounded text-xs" {...props} />
+              : <code className="bg-secondary block p-2 rounded text-xs" {...props} />;
+          },
         }}
       >
         {String(content)}

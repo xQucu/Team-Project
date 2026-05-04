@@ -1,4 +1,5 @@
 import { Check, Clock, Footprints, Moon, Play } from "lucide-react";
+import ReactMarkdown from "react-markdown";
 
 interface TrainingInfo {
   type: "workout" | "rest" | "none" | "completed";
@@ -129,9 +130,20 @@ export function TrainingCard({
         </div>
         <div className="flex-1">
           <p className="text-foreground font-medium">{training.title}</p>
-          <p className="text-xs text-muted-foreground">
-            {training.description}
-          </p>
+          {training.description && (
+            <div className="text-xs text-muted-foreground mt-1 space-y-1">
+              <ReactMarkdown
+                components={{
+                  p: ({ node, ...props }) => <p className="mb-1" {...props} />,
+                  strong: ({ node, ...props }) => (
+                    <strong className="text-orange-400 font-semibold" {...props} />
+                  ),
+                }}
+              >
+                {training.description.replace(/\n/g, '\n\n')}
+              </ReactMarkdown>
+            </div>
+          )}
           {training.duration && (
             <div className="flex items-center gap-1 mt-1">
               <Clock className="h-3 w-3 text-muted-foreground" />
