@@ -50,7 +50,7 @@ export function HomeScreen({ userName = "User", onLogout, theme = "dark", onTogg
   ]);
   const [history, setHistory] = useState<{sender: "user" | "assistant"; content: string}[]>([]);
   const [editModalOpen, setEditModalOpen] = useState(false);
-  const [editingWorkout, setEditingWorkout] = useState<{id: number; date: string; type: string; duration: string; description: string} | null>(null);
+  const [editingWorkout, setEditingWorkout] = useState<{id?: number; date: string; type: string; duration: string; description: string} | null>(null);
 
   useEffect(() => {
     fetch("http://localhost:3000/api/auth/workouts/", { credentials: "include" })
@@ -197,6 +197,28 @@ export function HomeScreen({ userName = "User", onLogout, theme = "dark", onTogg
     setSelectedDate(date);
   };
 
+  const handleEditWorkout = (date: Date, training?: any) => {
+    if (!training || training.type === "none") {
+      setEditingWorkout({
+        date: formatDateKey(date),
+        type: "easy_run",
+        duration: "",
+        description: "",
+      });
+    } else if (training.type !== "completed" && training.id) {
+      setEditingWorkout({
+        id: training.id,
+        date: training.date,
+        type: (training.title || "").toLowerCase().replace(" ", "_").replace("workout", "easy_run"), // default to easy_run if just "workout"
+        duration: training.duration || "",
+        description: training.description || "",
+      });
+    } else {
+      return;
+    }
+    setEditModalOpen(true);
+  };
+
   // Show live session
   if (isTraining) {
     return (
@@ -213,6 +235,7 @@ export function HomeScreen({ userName = "User", onLogout, theme = "dark", onTogg
       <FullCalendar
         onBack={() => setShowFullCalendar(false)}
         onSelectDate={handleDateSelectFromCalendar}
+        onEditWorkout={handleEditWorkout}
         trainingData={trainingData}
       />
     );
@@ -297,20 +320,7 @@ export function HomeScreen({ userName = "User", onLogout, theme = "dark", onTogg
               ? () => setIsTraining(true)
               : undefined
           }
-          onEdit={
-            selectedTraining.type !== "none" && selectedTraining.type !== "completed" && (selectedTraining as any).id
-              ? () => {
-                  setEditingWorkout({
-                    id: (selectedTraining as any).id,
-                    date: selectedTraining.date,
-                    type: (selectedTraining.title || "").toLowerCase().replace(" ", "_"),
-                    duration: selectedTraining.duration || "",
-                    description: selectedTraining.description || "",
-                  });
-                  setEditModalOpen(true);
-                }
-              : undefined
-          }
+          onEdit={() => handleEditWorkout(selectedDate, selectedTraining)}
         />
 
         {/* Trainer section header */}

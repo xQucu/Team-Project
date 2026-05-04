@@ -21,12 +21,14 @@ interface TrainingDay {
 interface FullCalendarProps {
   onBack: () => void;
   onSelectDate: (date: Date) => void;
+  onEditWorkout?: (date: Date, training?: TrainingDay) => void;
   trainingData: TrainingDay[];
 }
 
 export function FullCalendar({
   onBack,
   onSelectDate,
+  onEditWorkout,
   trainingData,
 }: FullCalendarProps) {
   const [currentMonth, setCurrentMonth] = useState(new Date());
@@ -221,11 +223,16 @@ const formatDateKey = (date: Date) => {
         </div>
 
         {/* Selected training card */}
-        {selectedDate && getTrainingForDate(selectedDate) && (
-          <div className="p-4 pt-6">
+        {selectedDate && (
+          <div className="p-4 pt-6 pb-12">
             <TrainingCard
-              training={getTrainingForDate(selectedDate)!}
+              training={getTrainingForDate(selectedDate) || { type: "none" }}
               selectedDate={selectedDate}
+              onEdit={
+                onEditWorkout
+                  ? () => onEditWorkout(selectedDate, getTrainingForDate(selectedDate))
+                  : undefined
+              }
             />
           </div>
         )}

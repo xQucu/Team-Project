@@ -32,7 +32,7 @@ const toApiDate = (dateStr: string): string => {
 };
 
 interface WorkoutData {
-  id: number;
+  id?: number;
   date: string;
   type: string;
   duration: string;
@@ -54,9 +54,10 @@ export function EditWorkoutModal({
   onSave,
   onDelete,
 }: EditWorkoutModalProps) {
+  const isNew = !workout.id;
   const [formData, setFormData] = useState({
     date: "",
-    type: workout.type,
+    type: workout.type || "easy_run",
     duration: workout.duration,
     description: workout.description,
   });
@@ -68,7 +69,7 @@ export function EditWorkoutModal({
     if (workout) {
       setFormData({
         date: toInputDate(workout.date),
-        type: workout.type,
+        type: workout.type || "easy_run",
         duration: workout.duration,
         description: workout.description,
       });
@@ -86,8 +87,9 @@ export function EditWorkoutModal({
   };
 
   const handleDelete = async () => {
+    if (isNew) return;
     setSaving(true);
-    await onDelete(workout.id);
+    await onDelete(workout.id!);
     setSaving(false);
   };
 
@@ -103,7 +105,7 @@ export function EditWorkoutModal({
       <div className="relative bg-card rounded-xl p-6 w-full max-w-md max-h-[90vh] overflow-y-auto">
         {/* Header */}
         <div className="flex items-center justify-between mb-6">
-          <h2 className="text-lg font-semibold">Edit Workout</h2>
+          <h2 className="text-lg font-semibold">{isNew ? "Add Workout" : "Edit Workout"}</h2>
           <button
             onClick={onClose}
             className="p-2 hover:bg-secondary rounded-lg transition-colors"
@@ -175,29 +177,31 @@ export function EditWorkoutModal({
           {/* Actions */}
           <div className="flex gap-3 pt-4">
             {/* Delete button */}
-            {!showDeleteConfirm ? (
-              <button
-                onClick={() => setShowDeleteConfirm(true)}
-                className="flex-1 py-3 rounded-xl bg-red-500/20 text-red-500 font-semibold hover:bg-red-500/30 transition-colors"
-              >
-                Delete
-              </button>
-            ) : (
-              <div className="flex-1 flex gap-2">
+            {!isNew && (
+              !showDeleteConfirm ? (
                 <button
-                  onClick={handleDelete}
-                  disabled={saving}
-                  className="flex-1 py-3 rounded-xl bg-red-500 text-white font-semibold hover:bg-red-600 transition-colors"
+                  onClick={() => setShowDeleteConfirm(true)}
+                  className="flex-1 py-3 rounded-xl bg-red-500/20 text-red-500 font-semibold hover:bg-red-500/30 transition-colors"
                 >
-                  {saving ? "Deleting..." : "Confirm Delete"}
+                  Delete
                 </button>
-                <button
-                  onClick={() => setShowDeleteConfirm(false)}
-                  className="flex-1 py-3 rounded-xl bg-secondary font-semibold hover:bg-secondary/80 transition-colors"
-                >
-                  Cancel
-                </button>
-              </div>
+              ) : (
+                <div className="flex-1 flex gap-2">
+                  <button
+                    onClick={handleDelete}
+                    disabled={saving}
+                    className="flex-1 py-3 rounded-xl bg-red-500 text-white font-semibold hover:bg-red-600 transition-colors"
+                  >
+                    {saving ? "Deleting..." : "Confirm Delete"}
+                  </button>
+                  <button
+                    onClick={() => setShowDeleteConfirm(false)}
+                    className="flex-1 py-3 rounded-xl bg-secondary font-semibold hover:bg-secondary/80 transition-colors"
+                  >
+                    Cancel
+                  </button>
+                </div>
+              )
             )}
 
             {/* Save button */}
@@ -206,7 +210,7 @@ export function EditWorkoutModal({
               disabled={saving}
               className="flex-1 py-3 rounded-xl bg-green-500 text-white font-semibold hover:bg-green-600 transition-colors disabled:opacity-50"
             >
-              {saving ? "Saving..." : "Save"}
+              {saving ? (isNew ? "Creating..." : "Saving...") : (isNew ? "Create Workout" : "Save")}
             </button>
           </div>
         </div>

@@ -11,7 +11,7 @@ from google.genai import types
 
 from .parsers import parse_gemini_response
 from .prompts import get_system_prompt
-from .services import save_workout_sessions, get_user_workouts, format_workout_for_api, apply_workout_modification, delete_workout
+from .services import save_workout_sessions, get_user_workouts, format_workout_for_api, apply_workout_modification, delete_workout, create_workout
 from .models import UserProfile, WorkoutSession
 
 CHAT_MODEL = "gemini-3.1-flash-lite-preview"
@@ -118,15 +118,22 @@ def modify_workout(request):
         return JsonResponse({"error": "Invalid JSON"}, status=400)
 
     workout_id = data.get("workout_id")
-    if not workout_id:
-        return JsonResponse({"error": "workout_id required"}, status=400)
-
     new_date = data.get("new_date")
     new_type = data.get("new_type")
     new_duration = data.get("new_duration")
     new_description = data.get("new_description")
 
-    if new_date == "delete":
+    if not workout_id:
+        if not new_date:
+            return JsonResponse({"error": "date required for new workout"}, status=400)
+        result = create_workout(
+            request.user,
+            date_str=new_date,
+            type=new_type or "easy_run",
+            duration=new_duration or "30 min",
+            description=new_description or ""
+        )
+    elif new_date == "delete":
         result = delete_workout(request.user, workout_id)
     else:
         result = apply_workout_modification(
@@ -335,6 +342,7 @@ def chat(request):
             get_user_chat_context,
             apply_workout_modification,
             delete_workout,
+            create_workout,
         )
         import re
 

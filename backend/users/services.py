@@ -196,6 +196,35 @@ def delete_workout(user: User, workout_id: int) -> dict:
     }
 
 
+def create_workout(user: User, date_str: str, type: str = "easy_run", duration: str = "30 min", description: str = "") -> dict:
+    """Create a new workout session."""
+    try:
+        session_date = parse_date(date_str)
+        
+        # We need week and month numbers, but for manual entry we'll just use 1 or try to match existing
+        latest = WorkoutSession.objects.filter(user=user, date__lte=session_date).order_by("-date").first()
+        week_num = latest.week_number if latest else 1
+        month_num = latest.month_number if latest else 1
+
+        workout = WorkoutSession.objects.create(
+            user=user,
+            date=session_date,
+            type=type,
+            duration=duration,
+            description=description,
+            status="planned",
+            week_number=week_num,
+            month_number=month_num
+        )
+        return {
+            'success': True,
+            'message': f'Workout created for {workout.date.strftime("%A %B %d")}',
+            'workout': format_workout_for_api(workout)
+        }
+    except Exception as e:
+        return {'success': False, 'error': str(e)}
+
+
 def create_modification_proposal(user: User, workout_id: int, changes: dict) -> dict:
     """Create a modification proposal for user confirmation."""
     try:

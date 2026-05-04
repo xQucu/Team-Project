@@ -53,6 +53,14 @@ export function TrainingCard({
             </p>
           </div>
         </div>
+        {onEdit && (
+          <button
+            onClick={onEdit}
+            className="w-full mt-4 flex items-center justify-center gap-2 bg-secondary hover:bg-secondary/80 text-secondary-foreground font-semibold py-3 rounded-xl transition-colors"
+          >
+            Add Workout
+          </button>
+        )}
       </div>
     );
   }
