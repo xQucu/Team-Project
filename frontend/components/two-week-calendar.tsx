@@ -41,12 +41,19 @@ export function TwoWeekCalendar({
   const days = useMemo(() => {
     const today = new Date();
     today.setHours(0, 0, 0, 0);
-    const dayNames = ["MON", "TUE", "WED", "THU", "FRI", "SAT", "SUN"];
+    
+    // Start from Monday of current week
+    const dayOfWeek = today.getDay();
+    const daysToMonday = dayOfWeek === 0 ? -6 : 1 - dayOfWeek;
+    const monday = new Date(today);
+    monday.setDate(today.getDate() + daysToMonday);
+    
+    const dayNames = ["SUN", "MON", "TUE", "WED", "THU", "FRI", "SAT"];
     const result: DayInfo[] = [];
 
     for (let i = 0; i < 14; i++) {
-      const date = new Date(today);
-      date.setDate(today.getDate() + i);
+      const date = new Date(monday);
+      date.setDate(monday.getDate() + i);
 
       const dateKey = formatDateKey(date);
       const training = trainingData.find((t) => t.date === dateKey);
@@ -58,7 +65,7 @@ export function TwoWeekCalendar({
         dayName: dayNames[date.getDay()],
         dayNumber: date.getDate(),
         isToday: isTodayDate,
-        isPast: false,
+        isPast: date.getTime() < today.getTime(),
         training,
       });
     }
