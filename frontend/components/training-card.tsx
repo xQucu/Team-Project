@@ -14,6 +14,7 @@ interface TrainingCardProps {
   mascotImage?: string;
   selectedDate?: Date;
   onStartTraining?: () => void;
+  onEdit?: () => void;
 }
 
 export function TrainingCard({
@@ -21,6 +22,7 @@ export function TrainingCard({
   mascotImage,
   selectedDate,
   onStartTraining,
+  onEdit,
 }: TrainingCardProps) {
   const isToday = selectedDate
     ? selectedDate.toDateString() === new Date().toDateString()
@@ -171,6 +173,16 @@ export function TrainingCard({
             ))}
           </ul>
         </div>
+      )}
+
+      {/* Edit button - show if there's a workout (not "none") */}
+      {onEdit && (training.type === "workout" || training.type === "rest" || training.type === "completed") && (
+        <button
+          onClick={onEdit}
+          className="w-full mt-4 flex items-center justify-center gap-2 bg-secondary hover:bg-secondary/80 text-secondary-foreground font-semibold py-3 rounded-xl transition-colors"
+        >
+          Edit Workout
+        </button>
       )}
 
       {/* Start training button - only show for today */}

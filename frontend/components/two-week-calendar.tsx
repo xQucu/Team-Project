@@ -2,8 +2,9 @@ import { Calendar, Check, ChevronRight } from "lucide-react";
 import { useMemo } from "react";
 
 interface TrainingDay {
+  id?: number;
   date: string; // YYYY-MM-DD
-  type: "workout" | "rest" | "completed";
+  type: "workout" | "rest" | "completed" | "none";
   title?: string;
   description?: string;
   duration?: string;

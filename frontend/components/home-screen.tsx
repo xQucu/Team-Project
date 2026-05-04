@@ -1,4 +1,5 @@
 import { ChatInterface, Message } from "@/components/chat-interface";
+import { EditWorkoutModal } from "@/components/EditWorkoutModal";
 import { FullCalendar } from "@/components/full-calendar";
 import { LiveSession } from "@/components/live-session";
 import { TrainingCard } from "@/components/training-card";
@@ -7,8 +8,9 @@ import { ArrowLeft, LogOut, Menu, Settings, Sun, Moon, User, X } from "lucide-re
 import { useEffect, useMemo, useState } from "react";
 
 interface TrainingDay {
+  id?: number;
   date: string;
-  type: "workout" | "rest" | "completed";
+  type: "workout" | "rest" | "completed" | "none";
   title?: string;
   description?: string;
   duration?: string;
@@ -47,12 +49,15 @@ export function HomeScreen({ userName = "User", onLogout, theme = "dark", onTogg
     },
   ]);
   const [history, setHistory] = useState<{sender: "user" | "assistant"; content: string}[]>([]);
+  const [editModalOpen, setEditModalOpen] = useState(false);
+  const [editingWorkout, setEditingWorkout] = useState<{id: number; date: string; type: string; duration: string; description: string} | null>(null);
 
   useEffect(() => {
     fetch("http://localhost:3000/api/auth/workouts/", { credentials: "include" })
       .then(res => res.json())
       .then(data => {
         const workouts = (data.workouts || []).map((w: any) => ({
+          id: w.id,
           date: w.date,
           type: w.status === "completed" ? "completed" : w.type === "rest" ? "rest" : "workout",
           title: w.type.replace("_", " ").replace(/\b\w/g, (c: string) => c.toUpperCase()),
@@ -72,7 +77,7 @@ export function HomeScreen({ userName = "User", onLogout, theme = "dark", onTogg
     const training = trainingData.find((t) => t.date === dateKey);
 
     if (!training) {
-      return { type: "none" as const };
+      return { type: "none" as const, id: undefined };
     }
 
     return training;
@@ -292,6 +297,20 @@ export function HomeScreen({ userName = "User", onLogout, theme = "dark", onTogg
               ? () => setIsTraining(true)
               : undefined
           }
+          onEdit={
+            selectedTraining.type !== "none" && selectedTraining.type !== "completed" && (selectedTraining as any).id
+              ? () => {
+                  setEditingWorkout({
+                    id: (selectedTraining as any).id,
+                    date: selectedTraining.date,
+                    type: (selectedTraining.title || "").toLowerCase().replace(" ", "_"),
+                    duration: selectedTraining.duration || "",
+                    description: selectedTraining.description || "",
+                  });
+                  setEditModalOpen(true);
+                }
+              : undefined
+          }
         />
 
         {/* Trainer section header */}
@@ -379,6 +398,87 @@ export function HomeScreen({ userName = "User", onLogout, theme = "dark", onTogg
           </div>
         </div>
       </div>
+
+      {/* Edit Workout Modal */}
+      {editModalOpen && editingWorkout && (
+        <EditWorkoutModal
+          workout={editingWorkout}
+          isOpen={editModalOpen}
+          onClose={() => {
+            setEditModalOpen(false);
+            setEditingWorkout(null);
+          }}
+          onSave={async (updated) => {
+            try {
+              const res = await fetch("http://localhost:3000/api/auth/workouts/modify/", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({
+                  workout_id: updated.id,
+                  new_date: updated.date,
+                  new_type: updated.type,
+                  new_duration: updated.duration,
+                  new_description: updated.description,
+                }),
+                credentials: "include",
+              });
+              if (res.ok) {
+                setEditModalOpen(false);
+                setEditingWorkout(null);
+                // Refresh workouts
+                fetch("http://localhost:3000/api/auth/workouts/", { credentials: "include" })
+                  .then(res => res.json())
+                  .then(data => {
+                    const workouts = (data.workouts || []).map((w: any) => ({
+                      id: w.id,
+                      date: w.date,
+                      type: w.status === "completed" ? "completed" : w.type === "rest" ? "rest" : "workout",
+                      title: w.type.replace("_", " ").replace(/\b\w/g, (c: string) => c.toUpperCase()),
+                      description: w.description,
+                      duration: w.duration,
+                    }));
+                    setTrainingData(workouts);
+                  });
+              }
+            } catch (err) {
+              console.error("Failed to save workout:", err);
+            }
+          }}
+          onDelete={async (id) => {
+            try {
+              const res = await fetch("http://localhost:3000/api/auth/workouts/modify/", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({
+                  workout_id: id,
+                  new_date: "delete",
+                }),
+                credentials: "include",
+              });
+              if (res.ok) {
+                setEditModalOpen(false);
+                setEditingWorkout(null);
+                // Refresh workouts
+                fetch("http://localhost:3000/api/auth/workouts/", { credentials: "include" })
+                  .then(res => res.json())
+                  .then(data => {
+                    const workouts = (data.workouts || []).map((w: any) => ({
+                      id: w.id,
+                      date: w.date,
+                      type: w.status === "completed" ? "completed" : w.type === "rest" ? "rest" : "workout",
+                      title: w.type.replace("_", " ").replace(/\b\w/g, (c: string) => c.toUpperCase()),
+                      description: w.description,
+                      duration: w.duration,
+                    }));
+                    setTrainingData(workouts);
+                  });
+              }
+            } catch (err) {
+              console.error("Failed to delete workout:", err);
+            }
+          }}
+        />
+      )}
     </div>
   );
 }
