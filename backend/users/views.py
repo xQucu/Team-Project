@@ -143,7 +143,7 @@ def onboarding_chat(request):
         user_message = data.get("message", "")
         history = data.get("history", [])
 
-        current_date = date.today().strftime("%Y-%m-%d")
+        current_date = date.today().strftime("%d.%m.%Y")
 
         system_prompt = get_system_prompt().replace(
             "CURRENT_DATE_PLACEHOLDER", current_date

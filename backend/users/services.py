@@ -1,6 +1,19 @@
 from django.contrib.auth.models import User
 from .models import WorkoutSession
-from datetime import date, timedelta
+from datetime import date, timedelta, datetime
+
+
+def parse_date(date_str: str) -> date:
+    """Parse date string in dd.mm.yyyy format to date object."""
+    if not date_str:
+        return date.today()
+    try:
+        return datetime.strptime(date_str, "%d.%m.%Y").date()
+    except ValueError:
+        try:
+            return datetime.strptime(date_str, "%Y-%m-%d").date()
+        except ValueError:
+            return date.today()
 
 
 def save_workout_sessions(user: User, plan_data: dict) -> int:
@@ -12,7 +25,7 @@ def save_workout_sessions(user: User, plan_data: dict) -> int:
     if not start_date_str:
         start_date = date.today()
     else:
-        start_date = date.fromisoformat(start_date_str)
+        start_date = parse_date(start_date_str)
 
     today = date.today()
     day_of_week_map = {
@@ -150,7 +163,7 @@ def apply_workout_modification(user: User, workout_id: int, new_date: str = None
         return {'success': False, 'error': 'Workout not found'}
     
     if new_date:
-        workout.date = date.fromisoformat(new_date)
+        workout.date = parse_date(new_date)
     if new_type:
         workout.type = new_type
     if new_duration:
@@ -192,7 +205,7 @@ def create_modification_proposal(user: User, workout_id: int, changes: dict) -> 
     
     return {
         'success': True,
-        'proposal_id': f'proposal_{workout_id}_{int(today().strftime("%Y%m%d%H%M%S"))}',
+        'proposal_id': f'proposal_{workout_id}_{int(today().strftime("%d%m%Y%H%M%S"))}',
         'original': format_workout_for_api(workout),
         'proposed': changes,
         'requires_confirmation': True,

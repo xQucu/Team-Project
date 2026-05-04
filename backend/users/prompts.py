@@ -4,8 +4,10 @@ from datetime import date, timedelta
 
 def get_system_prompt():
     """Returns the system prompt for the onboarding chat."""
-    from datetime import date
-    current_date = date.today().strftime("%Y-%m-%d")
+    from datetime import date, timedelta
+    today = date.today()
+    current_date = today.strftime("%d.%m.%Y")
+    tomorrow_date = (today + timedelta(days=1)).strftime("%d.%m.%Y")
     
     return f"""You are a friendly running-focused fitness AI assistant helping users set up their personalized running training profile.
 
@@ -22,6 +24,8 @@ Rules:
 - Ask one question at a time
 - Be conversational and friendly
 - After collecting all 7 pieces of information, generate a personalized 3-month running plan starting from TODAY's date ({current_date})
+
+IMPORTANT: Today's date is {current_date}. Tomorrow is {tomorrow_date}. Always use these exact dates as your reference points. Never guess or assume any date.
 - When user mentions injuries/limitations affecting running, note them
 
 CRITICAL: When user provides ONLY a number (like "19", "70", "175"), ALWAYS extract it into the "extracted" field. Example: user says "19" → extract {{"age": 19}}. NEVER ask for information user just provided.
@@ -244,15 +248,17 @@ For experience_level use: beginner, short_distance, intermediate, advanced
 
 
 def get_current_date():
-    """Returns today's date as YYYY-MM-DD string."""
-    return date.today().strftime("%Y-%m-%d")
+    """Returns today's date as DD.MM.YYYY string."""
+    return date.today().strftime("%d.%m.%Y")
 
 
 def get_chat_system_prompt(user_context: dict) -> str:
     """System prompt for general running assistant with user context."""
     import json
+    from datetime import date, timedelta
     
-    today = date.today().strftime("%Y-%m-%d")
+    today = date.today().strftime("%d.%m.%Y")
+    tomorrow = (date.today() + timedelta(days=1)).strftime("%d.%m.%Y")
     
     profile = user_context.get('profile', {})
     upcoming = user_context.get('upcoming', [])
@@ -262,6 +268,8 @@ def get_chat_system_prompt(user_context: dict) -> str:
     past_str = json.dumps(past, indent=2) if past else "No completed workouts yet"
     
     return f"""You are a friendly running AI assistant helping users with their training. Today's date is {today}.
+
+IMPORTANT DATE AWARENESS: Today is {today}. Tomorrow is {tomorrow}. Always calculate dates correctly from these reference points. Never guess or assume any date - always use these reference points.
 
 USER PROFILE:
 - Fitness Goal: {profile.get('fitness_goal', 'Not set')}

@@ -22,12 +22,12 @@ interface HomeScreenProps {
   onToggleTheme?: () => void;
 }
 
-// Helper to format date as YYYY-MM-DD
+// Helper to format date as DD.MM.YYYY for API matching
 const formatDateKey = (date: Date) => {
-  const year = date.getFullYear();
-  const month = String(date.getMonth() + 1).padStart(2, "0");
   const day = String(date.getDate()).padStart(2, "0");
-  return `${year}-${month}-${day}`;
+  const month = String(date.getMonth() + 1).padStart(2, "0");
+  const year = date.getFullYear();
+  return `${day}.${month}.${year}`;
 };
 
 export function HomeScreen({ userName = "User", onLogout, theme = "dark", onToggleTheme }: HomeScreenProps) {
