@@ -201,16 +201,16 @@ Generate the plan as JSON with this structure:
 IMPORTANT: You MUST generate EXACTLY 12 weeks of training (4 weeks × 3 months).
 Each month object in the "months" array must have exactly 4 weeks.
 Each week must have sessions based on training_days_per_week.
-ALL sessions must include a "description" field with helpful instruction for that workout type:
-- easy_run: "conversational pace, can speak while running"
-- speed: "short bursts at faster pace"
-- intervals: "high intensity with walk breaks"  
-- recovery: "very easy, walk if needed"
-- tempo: "comfortably hard, can speak in sentences"
-- long_run: "slow and steady build endurance"
-- hill: "uphill repeats for strength"
-- rest: "no running, full rest day"
-- walk_run: "walk and run intervals"
+ALL sessions must include a "description" field with detailed, helpful instructions for that workout type (minimum 2-4 sentences per description):
+- easy_run: "Start with a 5-minute gentle warm-up walk, then gradually increase to a conversational pace where you can speak in full sentences without gasping. Keep your heart rate in Zone 2 (roughly 60-70% of your maximum heart rate - you should be able to talk comfortably throughout). Maintain a relaxed breathing pattern: breathe in for 2-3 steps, breathe out for 2-3 steps. End with a 5-minute cool-down walk. This run builds your aerobic base without excessive strain."
+- speed: "Begin with a 10-minute warm-up including dynamic stretches like high knees and leg swings. After warming up, sprint at 80-90% effort for 20-30 seconds, then recover by walking or very easy jogging for 60-90 seconds. Repeat this pattern 6-10 times with full recovery between each sprint. Focus on good form: quick feet, relaxed shoulders, arms driving at 90 degrees. Walk slowly for 5 minutes to cool down. This workout improves running economy and leg speed."
+- intervals: "Start with a 10-minute warm-up jog. Run at a comfortably hard pace (you can speak a few words but prefer not to) for 2-3 minutes, then walk or jog very slowly for 1-2 minutes to recover. Repeat this high-intensity/low-intensity pattern 4-8 times. The key is to push hard during the running phase and truly recover during the walk phase. Cool down with 5 minutes of easy jogging and stretching. This builds anaerobic threshold and cardiovascular fitness."
+- tempo: "Begin with a 10-minute easy warm-up. Then run at a 'comfortably hard' pace - you can speak in short sentences but not hold a full conversation (roughly 80% effort). This is your 'tempo' pace or lactate threshold pace. Hold this pace for 20-40 minutes depending on your fitness level. Slow to a very easy jog for a 5-minute cool-down. Stretch your legs, hip flexors, and calves after. This workout teaches your body to sustain faster paces."
+- long_run: "Start with a 10-minute easy warm-up walk followed by 5 minutes of very gentle jogging. Find a conversational pace - you should be able to speak in full sentences throughout. Run for 45-90 minutes depending on your training plan. Stay patient and slow; this run is about building endurance, not speed. Take walk breaks if needed: 1 minute walk every 10 minutes is perfectly fine. Finish with a 10-minute walk cool-down. Hydrate during the run if needed. This is your weekly cornerstone workout for building aerobic capacity."
+- hill: "After a 10-minute warm-up, find a moderate hill (5-10% grade). Run uphill at 80% effort for 30-60 seconds, focusing on driving your arms and quick feet. Walk back down slowly for recovery. Repeat 6-10 times with full recovery between repeats. Keep your torso tall, don't lean forward too much. Walk for 5 minutes to cool down. This workout builds leg strength and power."
+- recovery: "Today is for active recovery. Take a leisurely 20-30 minute walk at a very easy pace where you could easily hold a conversation without any exertion. Focus on good walking form: tall posture, relaxed shoulders, gentle stride. Optionally add some light stretching for hip flexors, hamstrings, and calves. This helps flush out metabolic waste from harder workouts and promotes recovery."
+- rest: "Complete rest day - no running required. Your body needs this time to adapt and grow stronger from your training. Feel free to do light stretching or yoga if you'd like, but keep it gentle. Stay hydrated, eat nutritious food, and get good sleep. Recovery is just as important as training for getting faster."
+- walk_run: "Alternate between walking and light jogging. Start with a 5-minute walk warm-up. Then walk for 2 minutes at a brisk pace, jog for 1 minute at a very easy pace. Repeat this pattern for 20-30 minutes. This is perfect for beginners or recovery days. The key is to never feel out of breath - keep the jog easy enough that you could continue indefinitely."
 
 Adjust sessions based on experience_level:
 - beginner: walk/run intervals, start with 20-30 min
