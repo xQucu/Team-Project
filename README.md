@@ -130,9 +130,9 @@ CheetahFit/
 │   └── users/                 # Main app
 │       ├── models.py           # UserProfile, WorkoutSession
 │       ├── views.py           # API endpoints
-│       ├── services.py        # Business logic
-│       ├── prompts.py         # AI system prompts
-│       ├── parsers.py        # Response parsing
+│       ├── services.py        # Business logic (save workouts, etc)
+│       ├── prompts.py        # AI system prompts
+│       ├── parsers.py        # AI response parsing
 │       ├── urls.py          # Route definitions
 │       └── migrations/      # Database migrations
 │
@@ -159,8 +159,9 @@ CheetahFit/
 ### Onboarding
 
 - AI-guided conversation collects user data
-  (age, weight, height, goal, experience, availability, injuries)
-- Generates personalized 3-month running plan
+  (age, weight, height, goal, experience, training days per week, injuries)
+- Generates personalized 3-month running plan (12 weeks, 4 weeks per month)
+- Plan includes workout type descriptions for each session
 - Plan saved to database with proper date scheduling
 
 ### Home Screen
@@ -176,6 +177,22 @@ CheetahFit/
 - Makes modifications to training plan
 - Clear commands (e.g., "move wednesday to friday") apply directly
 - Vague requests (e.g., "make training harder") propose changes with confirmation
+- Delete workouts (e.g., "remove saturday's workout")
+- Bulk modifications (e.g., "make all workouts 60 min")
+- Creates new workout plans (e.g., "add more workouts")
+
+**Confirmation Flow:**
+1. User requests broad change → AI proposes specific changes
+2. Frontend shows proposal with workout count and description
+3. User responds "Yes" or "No" → Changes applied or cancelled
+
+**Response Fields:**
+| Field | Description |
+| ------ |-------------|
+| `reply` | Conversational response |
+| `modifications_applied` | Array of successful changes |
+| `confirmation_needed` | `{workout_ids: [...], proposed_change: "..."}` |
+| `newly_created` | Count of new workouts created |
 
 ---
 
