@@ -68,7 +68,7 @@ def save_workout_sessions(user: User, plan_data: dict) -> int:
                 if session_date < today:
                     continue
 
-                week_num = total_weeks + week_idx + 1
+                week_num = total_weeks + 1
                 month_num = month_idx + 1
 
                 WorkoutSession.objects.update_or_create(
@@ -85,7 +85,7 @@ def save_workout_sessions(user: User, plan_data: dict) -> int:
                 )
                 sessions_created += 1
 
-            total_weeks += len(weeks)
+            total_weeks += 1
 
     print(f"SAVE WORKOUT SESSIONS: Created {sessions_created} sessions across {total_weeks} weeks")
     return sessions_created
@@ -106,7 +106,7 @@ def format_workout_for_api(workout: WorkoutSession) -> dict:
     """Format a WorkoutSession for API response."""
     return {
         "id": workout.id,
-        "date": workout.date.isoformat(),
+        "date": workout.date.strftime("%d.%m.%Y"),
         "type": workout.type,
         "duration": workout.duration,
         "description": workout.description,

@@ -23,7 +23,7 @@ Collect the following information through natural conversation:
 Rules:
 - Ask one question at a time
 - Be conversational and friendly
-- After collecting all 7 pieces of information, generate a personalized 3-month running plan starting from TODAY's date ({current_date})
+- After collecting all 7 pieces of information, generate a personalized 2-month running plan starting from TODAY's date ({current_date})
 
 IMPORTANT: Today's date is {current_date}. Tomorrow is {tomorrow_date}. Always use these exact dates as your reference points. Never guess or assume any date.
 - When user mentions injuries/limitations affecting running, note them
@@ -202,7 +202,7 @@ Generate the plan as JSON with this structure:
   }}
 }}
 
-IMPORTANT: You MUST generate EXACTLY 12 weeks of training (4 weeks × 3 months).
+IMPORTANT: You MUST generate EXACTLY 8 weeks of training (4 weeks × 2 months).
 Each month object in the "months" array must have exactly 4 weeks.
 Each week must have sessions based on training_days_per_week.
 ALL sessions must include a "description" field with detailed, helpful instructions for that workout type (minimum 2-4 sentences per description):
@@ -223,7 +223,7 @@ Adjust sessions based on experience_level:
 - advanced: marathon prep, speed work, hill repeats, 45-90 min
 
 IMPORTANT: 
-- When user specifies X days per week, create X sessions for EVERY week (12 weeks total, 3 months)
+- When user specifies X days per week, create X sessions for EVERY week (8 weeks total, 2 months)
 - Spread sessions evenly across each week
 - For 2x/week: one mid-week (e.g., Wednesday) and one weekend (e.g., Saturday)
 - For 3x/week: Monday, Wednesday, Saturday
@@ -232,10 +232,10 @@ IMPORTANT:
 - For 6x/week: Monday through Saturday
 - For 7x/week: Every day
 - NEVER cluster sessions then take weeks off - every week has X sessions!
-- NEVER change a week's sessions after it's created - keep consistent weekly structure for all 12 weeks
+- NEVER change a week's sessions after it's created - keep consistent weekly structure for all 8 weeks
 - Use these day names exactly: monday, tuesday, wednesday, thursday, friday, saturday, sunday
 - Each month must have exactly 4 weeks in the "weeks" array
-- Total "months" array must have exactly 3 month objects (one per month of training)
+- Total "months" array must have exactly 2 month objects (one per month of training)
 
 Adjust number of sessions to training_days_per_week available.
 Adjust focus to fitness_goal (first_5k, improve_speed, marathon, endurance, weight_loss).
@@ -334,7 +334,7 @@ C) WORKOUT CREATION - If user asks to create/add NEW workouts:
     // ... month 3 with 4 weeks
   ]
 }}
-- IMPORTANT: Must create 3 months = 12 weeks = 4 weeks per month
+- IMPORTANT: Must create 2 months = 8 weeks = 4 weeks per month
 - IMPORTANT: Each week must have training_days_per_week sessions using proper day distribution
 
 D) INFORMATIONAL - Just answering questions:
