@@ -133,11 +133,13 @@ export function HomeScreen({ userName = "User", onLogout }: HomeScreenProps) {
 
       // If confirmation is needed, show it (don't duplicate reply - reply already shown above)
       if (data.confirmation_needed) {
+        const count = data.confirmation_needed.workout_ids?.length || 0;
+        const change = data.confirmation_needed.proposed_change || "this change";
         setMessages((prev) => [
           ...prev,
           {
             id: `confirmation-${Date.now()}`,
-            content: "Should I make this change? (Yes/No)",
+            content: `Apply to ${count} workout(s): "${change}"? (Yes/No)`,
             sender: "assistant",
             timestamp: new Date(),
             requires_confirmation: true,
