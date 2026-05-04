@@ -74,6 +74,7 @@ def save_workout_sessions(user: User, plan_data: dict) -> int:
 
             total_weeks += len(weeks)
 
+    print(f"SAVE WORKOUT SESSIONS: Created {sessions_created} sessions across {total_weeks} weeks")
     return sessions_created
 
 

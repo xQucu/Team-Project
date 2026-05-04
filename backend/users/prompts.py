@@ -54,35 +54,145 @@ Generate the plan as JSON with this structure:
         "weeks": [
           {{
             "sessions": [
-              {{"day": "wednesday", "type": "easy_run", "duration": "25 min", "description": "conversational jog with walk breaks"}},
-              {{"day": "saturday", "type": "long_run", "duration": "30 min", "description": "easy continuous run"}}
+              {{"day": "monday", "type": "easy_run", "duration": "30 min", "description": "conversational pace, can speak while running"}},
+              {{"day": "tuesday", "type": "speed", "duration": "30 min", "description": "short bursts at faster pace"}},
+              {{"day": "wednesday", "type": "intervals", "duration": "30 min", "description": "high intensity with walk breaks"}},
+              {{"day": "thursday", "type": "recovery", "duration": "30 min", "description": "very easy, walk if needed"}},
+              {{"day": "friday", "type": "tempo", "duration": "30 min", "description": "comfortably hard, can speak in sentences"}},
+              {{"day": "saturday", "type": "long_run", "duration": "60 min", "description": "slow and steady build endurance"}},
+              {{"day": "sunday", "type": "rest", "duration": "0 min", "description": "no running, full rest day"}}
             ]
           }},
           {{
             "sessions": [
-              {{"day": "monday", "type": "easy_run", "duration": "25 min"}},
-              {{"day": "friday", "type": "recovery", "duration": "20 min"}}
+              {{"day": "monday", "type": "easy_run", "duration": "30 min", "description": "conversational pace, can speak while running"}},
+              {{"day": "tuesday", "type": "hill", "duration": "30 min", "description": "uphill repeats for strength"}},
+              {{"day": "wednesday", "type": "intervals", "duration": "30 min", "description": "high intensity with walk breaks"}},
+              {{"day": "thursday", "type": "recovery", "duration": "30 min", "description": "very easy, walk if needed"}},
+              {{"day": "friday", "type": "tempo", "duration": "30 min", "description": "comfortably hard, can speak in sentences"}},
+              {{"day": "saturday", "type": "long_run", "duration": "60 min", "description": "slow and steady build endurance"}},
+              {{"day": "sunday", "type": "rest", "duration": "0 min", "description": "no running, full rest day"}}
             ]
           }},
           {{
             "sessions": [
-              {{"day": "wednesday", "type": "intervals", "duration": "30 min"}},
-              {{"day": "saturday", "type": "long_run", "duration": "35 min"}}
+              {{"day": "monday", "type": "easy_run", "duration": "30 min", "description": "conversational pace, can speak while running"}},
+              {{"day": "tuesday", "type": "speed", "duration": "30 min", "description": "short bursts at faster pace"}},
+              {{"day": "wednesday", "type": "intervals", "duration": "30 min", "description": "high intensity with walk breaks"}},
+              {{"day": "thursday", "type": "recovery", "duration": "30 min", "description": "very easy, walk if needed"}},
+              {{"day": "friday", "type": "tempo", "duration": "30 min", "description": "comfortably hard, can speak in sentences"}},
+              {{"day": "saturday", "type": "long_run", "duration": "60 min", "description": "slow and steady build endurance"}},
+              {{"day": "sunday", "type": "rest", "duration": "0 min", "description": "no running, full rest day"}}
             ]
           }},
           {{
             "sessions": [
-              {{"day": "tuesday", "type": "easy_run", "duration": "25 min"}},
-              {{"day": "saturday", "type": "long_run", "duration": "40 min"}}
+              {{"day": "monday", "type": "easy_run", "duration": "30 min", "description": "conversational pace, can speak while running"}},
+              {{"day": "tuesday", "type": "hill", "duration": "30 min", "description": "uphill repeats for strength"}},
+              {{"day": "wednesday", "type": "intervals", "duration": "30 min", "description": "high intensity with walk breaks"}},
+              {{"day": "thursday", "type": "recovery", "duration": "30 min", "description": "very easy, walk if needed"}},
+              {{"day": "friday", "type": "tempo", "duration": "30 min", "description": "comfortably hard, can speak in sentences"}},
+              {{"day": "saturday", "type": "long_run", "duration": "60 min", "description": "slow and steady build endurance"}},
+              {{"day": "sunday", "type": "rest", "duration": "0 min", "description": "no running, full rest day"}}
             ]
           }}
         ]
       }},
       {{
-        "weeks": [{{"sessions": [{{"day": "wednesday", "type": "easy_run", "duration": "30 min"}}]}}]
+        "weeks": [
+          {{
+            "sessions": [
+              {{"day": "monday", "type": "easy_run", "duration": "30 min", "description": "conversational pace, can speak while running"}},
+              {{"day": "tuesday", "type": "speed", "duration": "30 min", "description": "short bursts at faster pace"}},
+              {{"day": "wednesday", "type": "intervals", "duration": "30 min", "description": "high intensity with walk breaks"}},
+              {{"day": "thursday", "type": "recovery", "duration": "30 min", "description": "very easy, walk if needed"}},
+              {{"day": "friday", "type": "tempo", "duration": "30 min", "description": "comfortably hard, can speak in sentences"}},
+              {{"day": "saturday", "type": "long_run", "duration": "60 min", "description": "slow and steady build endurance"}},
+              {{"day": "sunday", "type": "rest", "duration": "0 min", "description": "no running, full rest day"}}
+            ]
+          }},
+          {{
+            "sessions": [
+              {{"day": "monday", "type": "easy_run", "duration": "30 min", "description": "conversational pace, can speak while running"}},
+              {{"day": "tuesday", "type": "hill", "duration": "30 min", "description": "uphill repeats for strength"}},
+              {{"day": "wednesday", "type": "intervals", "duration": "30 min", "description": "high intensity with walk breaks"}},
+              {{"day": "thursday", "type": "recovery", "duration": "30 min", "description": "very easy, walk if needed"}},
+              {{"day": "friday", "type": "tempo", "duration": "30 min", "description": "comfortably hard, can speak in sentences"}},
+              {{"day": "saturday", "type": "long_run", "duration": "60 min", "description": "slow and steady build endurance"}},
+              {{"day": "sunday", "type": "rest", "duration": "0 min", "description": "no running, full rest day"}}
+            ]
+          }},
+          {{
+            "sessions": [
+              {{"day": "monday", "type": "easy_run", "duration": "30 min", "description": "conversational pace, can speak while running"}},
+              {{"day": "tuesday", "type": "speed", "duration": "30 min", "description": "short bursts at faster pace"}},
+              {{"day": "wednesday", "type": "intervals", "duration": "30 min", "description": "high intensity with walk breaks"}},
+              {{"day": "thursday", "type": "recovery", "duration": "30 min", "description": "very easy, walk if needed"}},
+              {{"day": "friday", "type": "tempo", "duration": "30 min", "description": "comfortably hard, can speak in sentences"}},
+              {{"day": "saturday", "type": "long_run", "duration": "60 min", "description": "slow and steady build endurance"}},
+              {{"day": "sunday", "type": "rest", "duration": "0 min", "description": "no running, full rest day"}}
+            ]
+          }},
+          {{
+            "sessions": [
+              {{"day": "monday", "type": "easy_run", "duration": "30 min", "description": "conversational pace, can speak while running"}},
+              {{"day": "tuesday", "type": "hill", "duration": "30 min", "description": "uphill repeats for strength"}},
+              {{"day": "wednesday", "type": "intervals", "duration": "30 min", "description": "high intensity with walk breaks"}},
+              {{"day": "thursday", "type": "recovery", "duration": "30 min", "description": "very easy, walk if needed"}},
+              {{"day": "friday", "type": "tempo", "duration": "30 min", "description": "comfortably hard, can speak in sentences"}},
+              {{"day": "saturday", "type": "long_run", "duration": "60 min", "description": "slow and steady build endurance"}},
+              {{"day": "sunday", "type": "rest", "duration": "0 min", "description": "no running, full rest day"}}
+            ]
+          }}
+        ]
       }},
       {{
-        "weeks": [{{"sessions": [{{"day": "wednesday", "type": "easy_run", "duration": "30 min"}}]}}]
+        "weeks": [
+          {{
+            "sessions": [
+              {{"day": "monday", "type": "easy_run", "duration": "30 min", "description": "conversational pace, can speak while running"}},
+              {{"day": "tuesday", "type": "speed", "duration": "30 min", "description": "short bursts at faster pace"}},
+              {{"day": "wednesday", "type": "intervals", "duration": "30 min", "description": "high intensity with walk breaks"}},
+              {{"day": "thursday", "type": "recovery", "duration": "30 min", "description": "very easy, walk if needed"}},
+              {{"day": "friday", "type": "tempo", "duration": "30 min", "description": "comfortably hard, can speak in sentences"}},
+              {{"day": "saturday", "type": "long_run", "duration": "60 min", "description": "slow and steady build endurance"}},
+              {{"day": "sunday", "type": "rest", "duration": "0 min", "description": "no running, full rest day"}}
+            ]
+          }},
+          {{
+            "sessions": [
+              {{"day": "monday", "type": "easy_run", "duration": "30 min", "description": "conversational pace, can speak while running"}},
+              {{"day": "tuesday", "type": "hill", "duration": "30 min", "description": "uphill repeats for strength"}},
+              {{"day": "wednesday", "type": "intervals", "duration": "30 min", "description": "high intensity with walk breaks"}},
+              {{"day": "thursday", "type": "recovery", "duration": "30 min", "description": "very easy, walk if needed"}},
+              {{"day": "friday", "type": "tempo", "duration": "30 min", "description": "comfortably hard, can speak in sentences"}},
+              {{"day": "saturday", "type": "long_run", "duration": "60 min", "description": "slow and steady build endurance"}},
+              {{"day": "sunday", "type": "rest", "duration": "0 min", "description": "no running, full rest day"}}
+            ]
+          }},
+          {{
+            "sessions": [
+              {{"day": "monday", "type": "easy_run", "duration": "30 min", "description": "conversational pace, can speak while running"}},
+              {{"day": "tuesday", "type": "speed", "duration": "30 min", "description": "short bursts at faster pace"}},
+              {{"day": "wednesday", "type": "intervals", "duration": "30 min", "description": "high intensity with walk breaks"}},
+              {{"day": "thursday", "type": "recovery", "duration": "30 min", "description": "very easy, walk if needed"}},
+              {{"day": "friday", "type": "tempo", "duration": "30 min", "description": "comfortably hard, can speak in sentences"}},
+              {{"day": "saturday", "type": "long_run", "duration": "60 min", "description": "slow and steady build endurance"}},
+              {{"day": "sunday", "type": "rest", "duration": "0 min", "description": "no running, full rest day"}}
+            ]
+          }},
+          {{
+            "sessions": [
+              {{"day": "monday", "type": "easy_run", "duration": "30 min", "description": "conversational pace, can speak while running"}},
+              {{"day": "tuesday", "type": "hill", "duration": "30 min", "description": "uphill repeats for strength"}},
+              {{"day": "wednesday", "type": "intervals", "duration": "30 min", "description": "high intensity with walk breaks"}},
+              {{"day": "thursday", "type": "recovery", "duration": "30 min", "description": "very easy, walk if needed"}},
+              {{"day": "friday", "type": "tempo", "duration": "30 min", "description": "comfortably hard, can speak in sentences"}},
+              {{"day": "saturday", "type": "long_run", "duration": "60 min", "description": "slow and steady build endurance"}},
+              {{"day": "sunday", "type": "rest", "duration": "0 min", "description": "no running, full rest day"}}
+            ]
+          }}
+        ]
       }}
     ]
   }}
@@ -91,6 +201,16 @@ Generate the plan as JSON with this structure:
 IMPORTANT: You MUST generate EXACTLY 12 weeks of training (4 weeks × 3 months).
 Each month object in the "months" array must have exactly 4 weeks.
 Each week must have sessions based on training_days_per_week.
+ALL sessions must include a "description" field with helpful instruction for that workout type:
+- easy_run: "conversational pace, can speak while running"
+- speed: "short bursts at faster pace"
+- intervals: "high intensity with walk breaks"  
+- recovery: "very easy, walk if needed"
+- tempo: "comfortably hard, can speak in sentences"
+- long_run: "slow and steady build endurance"
+- hill: "uphill repeats for strength"
+- rest: "no running, full rest day"
+- walk_run: "walk and run intervals"
 
 Adjust sessions based on experience_level:
 - beginner: walk/run intervals, start with 20-30 min
