@@ -5,6 +5,7 @@ import { SignupScreen } from "@/components/signup-screen";
 import { useEffect, useState } from "react";
 
 type AppScreen = "login" | "signup" | "onboarding" | "home";
+type Theme = "dark" | "light";
 
 interface UserData {
   id: number;
@@ -17,6 +18,18 @@ interface UserData {
 export default function App() {
   const [currentScreen, setCurrentScreen] = useState<AppScreen>("login");
   const [userData, setUserData] = useState<UserData | null>(null);
+  const [theme, setTheme] = useState<Theme>(() => {
+    const saved = localStorage.getItem("cheetahfit_theme");
+    return (saved as Theme) || "dark";
+  });
+
+  useEffect(() => {
+    document.documentElement.classList.remove("dark", "light");
+    document.documentElement.classList.add(theme);
+    localStorage.setItem("cheetahfit_theme", theme);
+  }, [theme]);
+
+  const toggleTheme = () => setTheme(t => t === "dark" ? "light" : "dark");
 
   useEffect(() => {
     fetch("http://localhost:3000/api/auth/me/", { credentials: "include" })
@@ -82,6 +95,8 @@ export default function App() {
         <LoginScreen
           onLogin={handleLogin}
           onSignup={() => setCurrentScreen("signup")}
+          theme={theme}
+          onToggleTheme={toggleTheme}
         />
       )}
 
@@ -89,6 +104,8 @@ export default function App() {
         <SignupScreen
           onSignup={handleSignup}
           onBack={() => setCurrentScreen("login")}
+          theme={theme}
+          onToggleTheme={toggleTheme}
         />
       )}
 
@@ -99,7 +116,9 @@ export default function App() {
       {currentScreen === "home" && (
         <HomeScreen 
           userName={userData?.first_name}
-          onLogout={handleLogout} 
+          onLogout={handleLogout}
+          theme={theme}
+          onToggleTheme={toggleTheme}
         />
       )}
     </div>

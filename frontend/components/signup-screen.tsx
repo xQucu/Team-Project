@@ -1,14 +1,16 @@
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { ArrowLeft, Eye, EyeOff, Lock, Mail, User } from "lucide-react";
+import { ArrowLeft, Eye, EyeOff, Lock, Mail, Sun, Moon, User } from "lucide-react";
 import { useState } from "react";
 
 interface SignupScreenProps {
   onSignup: (userData: { id: number; email: string; first_name: string; last_name: string; has_completed_onboarding: boolean }) => void;
   onBack: () => void;
+  theme?: "dark" | "light";
+  onToggleTheme?: () => void;
 }
 
-export function SignupScreen({ onSignup, onBack }: SignupScreenProps) {
+export function SignupScreen({ onSignup, onBack, theme = "dark", onToggleTheme }: SignupScreenProps) {
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -65,6 +67,20 @@ export function SignupScreen({ onSignup, onBack }: SignupScreenProps) {
 
   return (
     <div className="min-h-screen bg-background flex flex-col p-6">
+      {/* Theme toggle in top-right */}
+      {onToggleTheme && (
+        <button
+          onClick={onToggleTheme}
+          className="absolute top-4 right-4 p-2 rounded-full hover:bg-secondary transition-colors"
+        >
+          {theme === "dark" ? (
+            <Sun className="h-5 w-5 text-foreground" />
+          ) : (
+            <Moon className="h-5 w-5 text-foreground" />
+          )}
+        </button>
+      )}
+
       {/* Back button */}
       <button
         onClick={onBack}

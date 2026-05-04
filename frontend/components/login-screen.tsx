@@ -1,14 +1,16 @@
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Eye, EyeOff, Lock, Mail } from "lucide-react";
+import { Eye, EyeOff, Lock, Mail, Sun, Moon } from "lucide-react";
 import { useState } from "react";
 
 interface LoginScreenProps {
   onLogin: (userData: { id: number; email: string; first_name: string; last_name: string; has_completed_onboarding: boolean }) => void;
   onSignup: () => void;
+  theme?: "dark" | "light";
+  onToggleTheme?: () => void;
 }
 
-export function LoginScreen({ onLogin, onSignup }: LoginScreenProps) {
+export function LoginScreen({ onLogin, onSignup, theme = "dark", onToggleTheme }: LoginScreenProps) {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
@@ -49,6 +51,20 @@ export function LoginScreen({ onLogin, onSignup }: LoginScreenProps) {
 
   return (
     <div className="min-h-screen bg-background flex flex-col items-center justify-center p-6">
+      {/* Theme toggle in top-right */}
+      {onToggleTheme && (
+        <button
+          onClick={onToggleTheme}
+          className="absolute top-4 right-4 p-2 rounded-full hover:bg-secondary transition-colors"
+        >
+          {theme === "dark" ? (
+            <Sun className="h-5 w-5 text-foreground" />
+          ) : (
+            <Moon className="h-5 w-5 text-foreground" />
+          )}
+        </button>
+      )}
+
       {/* Logo and mascot */}
       <div className="flex flex-col items-center mb-8">
         <img

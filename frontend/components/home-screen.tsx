@@ -3,7 +3,7 @@ import { FullCalendar } from "@/components/full-calendar";
 import { LiveSession } from "@/components/live-session";
 import { TrainingCard } from "@/components/training-card";
 import { TwoWeekCalendar } from "@/components/two-week-calendar";
-import { ArrowLeft, LogOut, Menu, Settings, User, X } from "lucide-react";
+import { ArrowLeft, LogOut, Menu, Settings, Sun, Moon, User, X } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 
 interface TrainingDay {
@@ -18,6 +18,8 @@ interface TrainingDay {
 interface HomeScreenProps {
   userName?: string;
   onLogout: () => void;
+  theme?: "dark" | "light";
+  onToggleTheme?: () => void;
 }
 
 // Helper to format date as YYYY-MM-DD
@@ -28,7 +30,7 @@ const formatDateKey = (date: Date) => {
   return `${year}-${month}-${day}`;
 };
 
-export function HomeScreen({ userName = "User", onLogout }: HomeScreenProps) {
+export function HomeScreen({ userName = "User", onLogout, theme = "dark", onToggleTheme }: HomeScreenProps) {
   const [selectedDate, setSelectedDate] = useState(new Date());
   const [menuOpen, setMenuOpen] = useState(false);
   const [showFullCalendar, setShowFullCalendar] = useState(false);
@@ -353,6 +355,13 @@ export function HomeScreen({ userName = "User", onLogout }: HomeScreenProps) {
             <button className="w-full flex items-center gap-3 p-3 hover:bg-secondary rounded-lg transition-colors text-foreground">
               <Settings className="h-5 w-5" />
               <span>Settings</span>
+            </button>
+            <button 
+              onClick={onToggleTheme}
+              className="w-full flex items-center gap-3 p-3 hover:bg-secondary rounded-lg transition-colors text-foreground"
+            >
+              {theme === "dark" ? <Sun className="h-5 w-5" /> : <Moon className="h-5 w-5" />}
+              <span>{theme === "dark" ? "Light Mode" : "Dark Mode"}</span>
             </button>
           </div>
 
