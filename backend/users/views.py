@@ -301,6 +301,7 @@ def chat(request):
             apply_workout_modification,
             delete_workout,
         )
+        import re
 
         user_context = get_user_chat_context(request.user)
 
@@ -379,6 +380,8 @@ def chat(request):
                     mod_result = delete_workout(request.user, workout_id)
                     if mod_result.get("success"):
                         applied_modifications.append(mod_result)
+                    else:
+                        print(f"DELETE FAILED: {mod_result}")
                 elif workout_id:
                     mod_result = apply_workout_modification(
                         request.user,
@@ -390,16 +393,58 @@ def chat(request):
                     )
                     if mod_result.get("success"):
                         applied_modifications.append(mod_result)
+                    else:
+                        print(f"MODIFICATION FAILED: {mod_result}")
             if applied_modifications:
                 reply = reply or "I've updated your training plan!"
 
         elif proposals:
-            confirmation_needed = {
-                "workout_id": proposals.get("workout_id"),
-                "proposed_change": proposals.get("change"),
-                "user_message": user_message,
-            }
-            reply = None
+            workout_ids = proposals.get("workout_ids", [])
+            change_text = proposals.get("change", "")
+            
+            print(f"PROPOSAL PROCESSING: workout_ids={workout_ids}, change={change_text}")
+            
+            new_duration = None
+            duration_match = re.search(r'(\d+)\s*(min|minute|minutes|hour|hr|hours)', change_text, re.IGNORECASE)
+            if duration_match:
+                amount = int(duration_match.group(1))
+                unit = duration_match.group(2).lower()
+                if unit.startswith('hour') or unit.startswith('hr'):
+                    amount = amount * 60
+                new_duration = f"{amount} min"
+                print(f"EXTRACTED DURATION: {new_duration}")
+            
+            new_type = None
+            workout_types = ["easy_run", "tempo", "intervals", "long_run", "speed", "hill", "recovery", "walk_run", "rest"]
+            for wt in workout_types:
+                if wt in change_text.lower():
+                    new_type = wt
+                    break
+            
+            if new_type:
+                print(f"EXTRACTED TYPE: {new_type}")
+            
+            if workout_ids and (new_duration or new_type):
+                for wid in workout_ids:
+                    mod_result = apply_workout_modification(
+                        request.user,
+                        wid,
+                        new_duration=new_duration,
+                        new_type=new_type,
+                    )
+                    if mod_result.get("success"):
+                        applied_modifications.append(mod_result)
+                if applied_modifications:
+                    reply = reply or f"Updated {len(applied_modifications)} workouts!"
+                    print(f"APPLIED {len(applied_modifications)} MODIFICATIONS")
+            
+            if not applied_modifications:
+                confirmation_needed = {
+                    "workout_ids": workout_ids,
+                    "proposed_change": change_text,
+                    "user_message": user_message,
+                }
+                reply = None
 
         plan_data = result.get("plan")
         if plan_data:
