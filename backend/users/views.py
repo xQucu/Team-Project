@@ -1,18 +1,26 @@
+import json
+from datetime import date
+
+import google.genai as genai
+from django.conf import settings
 from django.contrib.auth import authenticate, login, logout
+from django.contrib.auth.models import User
 from django.http import JsonResponse
 from django.views.decorators.csrf import csrf_exempt
 from django.views.decorators.http import require_POST
-from django.contrib.auth.models import User
-from django.conf import settings
-from datetime import date
-import json
-import google.genai as genai
 from google.genai import types
 
+from .models import UserProfile, WorkoutSession
 from .parsers import parse_gemini_response
 from .prompts import get_system_prompt
-from .services import save_workout_sessions, get_user_workouts, format_workout_for_api, apply_workout_modification, delete_workout, create_workout
-from .models import UserProfile, WorkoutSession
+from .services import (
+    apply_workout_modification,
+    create_workout,
+    delete_workout,
+    format_workout_for_api,
+    get_user_workouts,
+    save_workout_sessions,
+)
 
 CHAT_MODEL = "gemini-3.1-flash-lite-preview"
 
@@ -88,6 +96,7 @@ def login_view(request):
         return JsonResponse({"error": str(e)}, status=500)
 
 
+@csrf_exempt
 @require_POST
 def logout_view(request):
     logout(request)
@@ -131,7 +140,7 @@ def modify_workout(request):
             date_str=new_date,
             type=new_type or "easy_run",
             duration=new_duration or "30 min",
-            description=new_description or ""
+            description=new_description or "",
         )
     elif new_date == "delete":
         result = delete_workout(request.user, workout_id)
@@ -239,6 +248,13 @@ def onboarding_chat(request):
                 return JsonResponse(
                     {"error": "quota_exceeded", "retry_after": 15}, status=429
                 )
+            if "Temporary failure in name resolution" in error_str:
+                return JsonResponse(
+                    {
+                        "error": "Gemini API connection failed. Please check your internet connection."
+                    },
+                    status=503,
+                )
             return JsonResponse({"error": f"Gemini API error: {error_str}"}, status=500)
         print("=" * 50)
 
@@ -338,13 +354,14 @@ def chat(request):
         user_message = data.get("message", "")
 
         # Get user context for the prompt
-        from .services import (
-            get_user_chat_context,
-            apply_workout_modification,
-            delete_workout,
-            create_workout,
-        )
         import re
+
+        from .services import (
+            apply_workout_modification,
+            create_workout,
+            delete_workout,
+            get_user_chat_context,
+        )
 
         user_context = get_user_chat_context(request.user)
 
@@ -396,6 +413,13 @@ def chat(request):
                 return JsonResponse(
                     {"error": "quota_exceeded", "retry_after": 15}, status=429
                 )
+            if "Temporary failure in name resolution" in error_str:
+                return JsonResponse(
+                    {
+                        "error": "Gemini API connection failed. Please check your internet connection."
+                    },
+                    status=503,
+                )
             return JsonResponse({"error": f"Gemini API error: {error_str}"}, status=500)
         print("=" * 50)
 
@@ -444,29 +468,45 @@ def chat(request):
         elif proposals:
             workout_ids = proposals.get("workout_ids", [])
             change_text = proposals.get("change", "")
-            
-            print(f"PROPOSAL PROCESSING: workout_ids={workout_ids}, change={change_text}")
-            
+
+            print(
+                f"PROPOSAL PROCESSING: workout_ids={workout_ids}, change={change_text}"
+            )
+
             new_duration = None
-            duration_match = re.search(r'(\d+)\s*(min|minute|minutes|hour|hr|hours)', change_text, re.IGNORECASE)
+            duration_match = re.search(
+                r"(\d+)\s*(min|minute|minutes|hour|hr|hours)",
+                change_text,
+                re.IGNORECASE,
+            )
             if duration_match:
                 amount = int(duration_match.group(1))
                 unit = duration_match.group(2).lower()
-                if unit.startswith('hour') or unit.startswith('hr'):
+                if unit.startswith("hour") or unit.startswith("hr"):
                     amount = amount * 60
                 new_duration = f"{amount} min"
                 print(f"EXTRACTED DURATION: {new_duration}")
-            
+
             new_type = None
-            workout_types = ["easy_run", "tempo", "intervals", "long_run", "speed", "hill", "recovery", "walk_run", "rest"]
+            workout_types = [
+                "easy_run",
+                "tempo",
+                "intervals",
+                "long_run",
+                "speed",
+                "hill",
+                "recovery",
+                "walk_run",
+                "rest",
+            ]
             for wt in workout_types:
                 if wt in change_text.lower():
                     new_type = wt
                     break
-            
+
             if new_type:
                 print(f"EXTRACTED TYPE: {new_type}")
-            
+
             if workout_ids and (new_duration or new_type):
                 for wid in workout_ids:
                     mod_result = apply_workout_modification(
@@ -480,7 +520,7 @@ def chat(request):
                 if applied_modifications:
                     reply = reply or f"Updated {len(applied_modifications)} workouts!"
                     print(f"APPLIED {len(applied_modifications)} MODIFICATIONS")
-            
+
             if not applied_modifications:
                 confirmation_needed = {
                     "workout_ids": workout_ids,

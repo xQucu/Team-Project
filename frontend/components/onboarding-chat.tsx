@@ -1,4 +1,5 @@
 import { ChatInterface, Message } from "@/components/chat-interface";
+import { WheelPicker } from "@/components/wheel-picker";
 import { ArrowLeft } from "lucide-react";
 import { useEffect, useState } from "react";
 
@@ -15,14 +16,41 @@ interface ChatHistoryItem {
 const MAX_RETRIES = 5;
 const RETRY_DELAY_MS = 2000;
 
+interface PickerConfig {
+  type: "age" | "weight" | "height" | "days";
+  min: number;
+  max: number;
+  unit: string;
+  default: number;
+  label: string;
+}
+
 export function OnboardingChat({ onComplete, onBack }: OnboardingChatProps) {
   const [messages, setMessages] = useState<Message[]>([]);
   const [history, setHistory] = useState<ChatHistoryItem[]>([]);
   const [isTyping, setIsTyping] = useState(false);
   const [isComplete, setIsComplete] = useState(false);
   const [retryCount, setRetryCount] = useState(0);
+  const [pickerConfig, setPickerConfig] = useState<PickerConfig | null>(null);
 
-const sendChatRequest = async (message: string, hist: ChatHistoryItem[], attempt = 0): Promise<any> => {
+  const detectPicker = (text: string): PickerConfig | null => {
+    const lowerText = text.toLowerCase();
+    if (lowerText.includes("how old") || lowerText.includes("your age")) {
+      return { type: "age", min: 14, max: 99, unit: "", default: 25, label: "Select your age" };
+    }
+    if (lowerText.includes("weight") || lowerText.includes("weigh")) {
+      return { type: "weight", min: 40, max: 200, unit: " kg", default: 75, label: "Select your weight" };
+    }
+    if (lowerText.includes("height") || lowerText.includes("tall")) {
+      return { type: "height", min: 120, max: 230, unit: " cm", default: 175, label: "Select your height" };
+    }
+    if (lowerText.includes("days per week") || (lowerText.includes("how many days") && lowerText.includes("train"))) {
+      return { type: "days", min: 1, max: 7, unit: " days", default: 3, label: "Training days per week" };
+    }
+    return null;
+  };
+
+  const sendChatRequest = async (message: string, hist: ChatHistoryItem[], attempt = 0): Promise<any> => {
     const res = await fetch("http://localhost:3000/api/auth/onboarding/chat/", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -32,7 +60,7 @@ const sendChatRequest = async (message: string, hist: ChatHistoryItem[], attempt
 
     const data = await res.json();
 
-    if (res.status === 429 && attempt < MAX_RETRIES) {
+    if ((res.status === 429 || res.status === 503) && attempt < MAX_RETRIES) {
       setRetryCount(attempt + 1);
       await new Promise(resolve => setTimeout(resolve, RETRY_DELAY_MS));
       return sendChatRequest(message, hist, attempt + 1);
@@ -47,6 +75,7 @@ const sendChatRequest = async (message: string, hist: ChatHistoryItem[], attempt
   };
 
   const handleSendMessage = async (content: string) => {
+    setPickerConfig(null);
     setMessages((prev) => [
       ...prev,
       {
@@ -66,14 +95,13 @@ const sendChatRequest = async (message: string, hist: ChatHistoryItem[], attempt
 
       let replyContent = data.reply || "";
       
-      // If reply contains embedded JSON, extract just the message part
       try {
         const replyJson = JSON.parse(replyContent);
         if (replyJson.reply) {
           replyContent = replyJson.reply;
         }
       } catch {
-        // Not JSON, use as-is
+        // Not JSON
       }
 
       if (replyContent) {
@@ -87,6 +115,9 @@ const sendChatRequest = async (message: string, hist: ChatHistoryItem[], attempt
           },
         ]);
         setHistory((prev) => [...prev, { sender: "assistant" as const, content: replyContent }]);
+        
+        // Check if next question needs a picker
+        setPickerConfig(detectPicker(replyContent));
       }
 
       if (data.complete) {
@@ -113,6 +144,7 @@ const sendChatRequest = async (message: string, hist: ChatHistoryItem[], attempt
             sender: "assistant",
             timestamp: new Date(),
           }]);
+          setPickerConfig(detectPicker(data.reply));
         }
       } catch (e) {
         console.error(e);
@@ -152,16 +184,34 @@ const sendChatRequest = async (message: string, hist: ChatHistoryItem[], attempt
         </div>
       </header>
 
-      <div className="flex-1 flex flex-col">
+      <div className="flex-1 flex flex-col overflow-hidden relative">
         <ChatInterface
           messages={messages}
           onSendMessage={handleSendMessage}
-          placeholder="Type your answer..."
+          placeholder={pickerConfig ? "Use the picker below..." : "Type your answer..."}
           mascotImage="/images/onboarding-mascot.webp"
-          disabled={isTyping || isComplete}
+          disabled={isTyping || isComplete || !!pickerConfig}
           className="flex-1 rounded-none"
           showTypingIndicator={isTyping}
         />
+        
+        {pickerConfig && !isTyping && !isComplete && (
+          <WheelPicker
+            min={pickerConfig.min}
+            max={pickerConfig.max}
+            defaultValue={pickerConfig.default}
+            unit={pickerConfig.unit}
+            label={pickerConfig.label}
+            onSelect={() => {}}
+            onConfirm={(val) => {
+              const content = pickerConfig.type === "age" ? `${val} years old` : 
+                              pickerConfig.type === "weight" ? `${val} kg` :
+                              pickerConfig.type === "height" ? `${val} cm` :
+                              `${val} days`;
+              handleSendMessage(content);
+            }}
+          />
+        )}
       </div>
 
       <div className="p-4 border-t border-border">
