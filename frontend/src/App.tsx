@@ -10,8 +10,7 @@ type Theme = "dark" | "light";
 interface UserData {
   id: number;
   email: string;
-  first_name: string;
-  last_name: string;
+  name: string;
   has_completed_onboarding: boolean;
 }
 
@@ -115,7 +114,7 @@ export default function App() {
 
       {currentScreen === "home" && (
         <HomeScreen 
-          userName={userData?.first_name}
+          userName={userData?.name}
           onLogout={handleLogout}
           theme={theme}
           onToggleTheme={toggleTheme}

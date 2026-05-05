@@ -32,10 +32,9 @@ def register(request):
         data = json.loads(request.body)
         email = data.get("email", "").strip().lower()
         password = data.get("password", "")
-        first_name = data.get("first_name", "").strip()
-        last_name = data.get("last_name", "").strip()
+        name = data.get("name", "").strip()
 
-        if not email or not password or not first_name:
+        if not email or not password or not name:
             return JsonResponse({"error": "Missing required fields"}, status=400)
 
         if User.objects.filter(username=email).exists():
@@ -45,8 +44,8 @@ def register(request):
             username=email,
             email=email,
             password=password,
-            first_name=first_name,
-            last_name=last_name,
+            first_name=name,
+            last_name="",
         )
 
         login(request, user)
@@ -55,8 +54,7 @@ def register(request):
             {
                 "id": user.id,
                 "email": user.email,
-                "first_name": user.first_name,
-                "last_name": user.last_name,
+                "name": user.first_name,
                 "has_completed_onboarding": False,
             }
         )
@@ -87,8 +85,7 @@ def login_view(request):
             {
                 "id": user.id,
                 "email": user.email,
-                "first_name": user.first_name,
-                "last_name": user.last_name,
+                "name": user.first_name,
                 "has_completed_onboarding": profile.has_completed_onboarding,
             }
         )
@@ -157,6 +154,41 @@ def modify_workout(request):
     return JsonResponse(result)
 
 
+@csrf_exempt
+@require_POST
+def update_profile(request):
+    if not request.user.is_authenticated:
+        return JsonResponse({"error": "Not authenticated"}, status=401)
+
+    try:
+        data = json.loads(request.body)
+        profile = request.user.profile
+
+        if "age" in data:
+            profile.age = data["age"]
+        if "weight" in data:
+            profile.weight = data["weight"]
+        if "height" in data:
+            profile.height = data["height"]
+        if "fitness_goal" in data:
+            profile.fitness_goal = data["fitness_goal"]
+        if "experience_level" in data:
+            profile.experience_level = data["experience_level"]
+        if "training_days_per_week" in data:
+            profile.training_days_per_week = data["training_days_per_week"]
+        if "injuries" in data:
+            profile.injuries = data["injuries"]
+        if "name" in data:
+            request.user.first_name = data["name"].strip()
+            request.user.last_name = ""
+            request.user.save()
+
+        profile.save()
+        return JsonResponse({"message": "Profile updated successfully"})
+    except Exception as e:
+        return JsonResponse({"error": str(e)}, status=500)
+
+
 def me(request):
     if not request.user.is_authenticated:
         return JsonResponse({"error": "Not authenticated"}, status=401)
@@ -167,8 +199,7 @@ def me(request):
         {
             "id": request.user.id,
             "email": request.user.email,
-            "first_name": request.user.first_name,
-            "last_name": request.user.last_name,
+            "name": request.user.first_name,
             "has_completed_onboarding": profile.has_completed_onboarding,
             "profile": {
                 "age": profile.age,

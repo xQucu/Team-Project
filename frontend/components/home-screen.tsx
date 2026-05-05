@@ -1,11 +1,23 @@
 import { ChatInterface, Message } from "@/components/chat-interface";
 import { EditWorkoutModal } from "@/components/EditWorkoutModal";
+import { ProfileModal } from "@/components/ProfileModal";
 import { FullCalendar } from "@/components/full-calendar";
 import { LiveSession } from "@/components/live-session";
 import { TrainingCard } from "@/components/training-card";
 import { TwoWeekCalendar } from "@/components/two-week-calendar";
 import { ArrowLeft, LogOut, Menu, Settings, Sun, Moon, User, X } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
+
+interface ProfileData {
+  name: string;
+  age: number | "";
+  weight: number | "";
+  height: number | "";
+  fitness_goal: string;
+  experience_level: string;
+  training_days_per_week: number | "";
+  injuries: string;
+}
 
 interface TrainingDay {
   id?: number;
@@ -40,6 +52,16 @@ export function HomeScreen({ userName = "User", onLogout, theme = "dark", onTogg
   const [chatFullscreen, setChatFullscreen] = useState(false);
   const [isTyping, setIsTyping] = useState(false);
   const [trainingData, setTrainingData] = useState<TrainingDay[]>([]);
+  const [profileData, setProfileData] = useState<ProfileData>({
+    name: "",
+    age: "",
+    weight: "",
+    height: "",
+    fitness_goal: "first_5k",
+    experience_level: "beginner",
+    training_days_per_week: 3,
+    injuries: "",
+  });
   const [messages, setMessages] = useState<Message[]>([
     {
       id: "welcome",
@@ -50,9 +72,11 @@ export function HomeScreen({ userName = "User", onLogout, theme = "dark", onTogg
   ]);
   const [history, setHistory] = useState<{sender: "user" | "assistant"; content: string}[]>([]);
   const [editModalOpen, setEditModalOpen] = useState(false);
+  const [profileModalOpen, setProfileModalOpen] = useState(false);
   const [editingWorkout, setEditingWorkout] = useState<{id?: number; date: string; type: string; duration: string; description: string} | null>(null);
 
   useEffect(() => {
+    // Fetch workouts
     fetch("http://localhost:3000/api/auth/workouts/", { credentials: "include" })
       .then(res => res.json())
       .then(data => {
@@ -68,6 +92,24 @@ export function HomeScreen({ userName = "User", onLogout, theme = "dark", onTogg
       })
       .catch(() => {
         setTrainingData([]);
+      });
+
+    // Fetch profile
+    fetch("http://localhost:3000/api/auth/me/", { credentials: "include" })
+      .then(res => res.json())
+      .then(data => {
+        if (data.profile) {
+          setProfileData({
+            name: data.name || "",
+            age: data.profile.age || "",
+            weight: data.profile.weight || "",
+            height: data.profile.height || "",
+            fitness_goal: data.profile.fitness_goal || "first_5k",
+            experience_level: data.profile.experience_level || "beginner",
+            training_days_per_week: data.profile.training_days_per_week || 3,
+            injuries: data.profile.injuries || "",
+          });
+        }
       });
   }, []);
 
@@ -365,7 +407,7 @@ export function HomeScreen({ userName = "User", onLogout, theme = "dark", onTogg
                 className="w-10 h-10 object-contain"
               />
               <div>
-                <p className="font-semibold text-foreground">{userName}</p>
+                <p className="font-semibold text-foreground">{profileData.name || userName}</p>
                 <p className="text-xs text-muted-foreground">Premium Member</p>
               </div>
             </div>
@@ -379,7 +421,13 @@ export function HomeScreen({ userName = "User", onLogout, theme = "dark", onTogg
 
           {/* Menu items */}
           <div className="flex-1 p-4 space-y-2">
-            <button className="w-full flex items-center gap-3 p-3 hover:bg-secondary rounded-lg transition-colors text-foreground">
+            <button 
+              onClick={() => {
+                setProfileModalOpen(true);
+                setMenuOpen(false);
+              }}
+              className="w-full flex items-center gap-3 p-3 hover:bg-secondary rounded-lg transition-colors text-foreground"
+            >
               <User className="h-5 w-5" />
               <span>Profile</span>
             </button>
@@ -408,6 +456,31 @@ export function HomeScreen({ userName = "User", onLogout, theme = "dark", onTogg
           </div>
         </div>
       </div>
+
+      {/* Profile Modal */}
+      {profileModalOpen && (
+        <ProfileModal
+          isOpen={profileModalOpen}
+          onClose={() => setProfileModalOpen(false)}
+          data={profileData}
+          onSave={async (updated) => {
+            try {
+              const res = await fetch("http://localhost:3000/api/auth/profile/update/", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify(updated),
+                credentials: "include",
+              });
+              if (res.ok) {
+                setProfileData(updated);
+                setProfileModalOpen(false);
+              }
+            } catch (err) {
+              console.error("Failed to update profile:", err);
+            }
+          }}
+        />
+      )}
 
       {/* Edit Workout Modal */}
       {editModalOpen && editingWorkout && (

@@ -4,7 +4,7 @@ import { ArrowLeft, Eye, EyeOff, Lock, Mail, Sun, Moon, User } from "lucide-reac
 import { useState } from "react";
 
 interface SignupScreenProps {
-  onSignup: (userData: { id: number; email: string; first_name: string; last_name: string; has_completed_onboarding: boolean }) => void;
+  onSignup: (userData: { id: number; email: string; name: string; has_completed_onboarding: boolean }) => void;
   onBack: () => void;
   theme?: "dark" | "light";
   onToggleTheme?: () => void;
@@ -40,14 +40,10 @@ export function SignupScreen({ onSignup, onBack, theme = "dark", onToggleTheme }
 
     setIsLoading(true);
     try {
-      const nameParts = name.trim().split(" ");
-      const first_name = nameParts[0];
-      const last_name = nameParts.slice(1).join(" ") || "";
-
       const res = await fetch("http://localhost:3000/api/auth/register/", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ email, password, first_name, last_name }),
+        body: JSON.stringify({ email, password, name }),
         credentials: "include",
       });
       const data = await res.json();
