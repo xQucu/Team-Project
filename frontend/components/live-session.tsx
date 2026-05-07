@@ -21,16 +21,20 @@ const motivationalQuotes = [
 
 interface LiveSessionProps {
   initialHeartRate?: number;
+  heartRate?: number;
   onHeartRateUpdate?: (bpm: number) => void;
+  onRegisterHeartRateUpdate?: (callback: (bpm: number) => void) => void;
   onFinish: () => void;
   onBack: () => void;
 }
 
-export function LiveSession({ initialHeartRate = 0, onHeartRateUpdate, onFinish, onBack }: LiveSessionProps) {
+export function LiveSession({ initialHeartRate = 0, heartRate: externalHeartRate, onHeartRateUpdate, onRegisterHeartRateUpdate, onFinish, onBack }: LiveSessionProps) {
   const [isPaused, setIsPaused] = useState(false);
   const [elapsedSeconds, setElapsedSeconds] = useState(0);
-  const [heartRate, setHeartRate] = useState(initialHeartRate || 142);
+  const [internalHeartRate, setInternalHeartRate] = useState(initialHeartRate || 142);
   const [hasBluetooth, setHasBluetooth] = useState(initialHeartRate > 0);
+  
+  const heartRate = externalHeartRate !== undefined ? externalHeartRate : internalHeartRate;
   const [distance, setDistance] = useState(0);
   const [speed, setSpeed] = useState(0);
   const [quote] = useState(
@@ -46,7 +50,7 @@ export function LiveSession({ initialHeartRate = 0, onHeartRateUpdate, onFinish,
       setElapsedSeconds((prev) => prev + 1);
       // Only simulate stats if no Bluetooth connected
       if (!hasBluetooth) {
-        setHeartRate((prev) =>
+        setInternalHeartRate((prev: number) =>
           Math.min(180, Math.max(120, prev + Math.floor(Math.random() * 5) - 2)),
         );
       }
@@ -59,9 +63,17 @@ export function LiveSession({ initialHeartRate = 0, onHeartRateUpdate, onFinish,
 
   // Sync Bluetooth heart rate updates
   useEffect(() => {
-    if (!onHeartRateUpdate || initialHeartRate === 0) return;
-    setHasBluetooth(true);
-  }, [initialHeartRate, onHeartRateUpdate]);
+    if (externalHeartRate !== undefined) {
+      setHasBluetooth(true);
+    }
+  }, [externalHeartRate]);
+
+  // Register heart rate update callback when Bluetooth connected
+  useEffect(() => {
+    if (initialHeartRate > 0 && onRegisterHeartRateUpdate) {
+      onRegisterHeartRateUpdate(setInternalHeartRate);
+    }
+  }, [initialHeartRate, onRegisterHeartRateUpdate]);
 
   const formatTime = useCallback((seconds: number) => {
     const mins = Math.floor(seconds / 60);

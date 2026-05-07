@@ -3,10 +3,11 @@ import { useState } from "react";
 
 interface BluetoothConnectProps {
   onConnected: (device: any, heartRate: number, onHeartRateUpdate: (bpm: number) => void) => void;
+  onHeartRateChange?: (bpm: number) => void;
   onBack: () => void;
 }
 
-export function BluetoothConnect({ onConnected, onBack }: BluetoothConnectProps) {
+export function BluetoothConnect({ onConnected, onHeartRateChange, onBack }: BluetoothConnectProps) {
   const [status, setStatus] = useState<"idle" | "scanning" | "connecting" | "connected" | "error">("idle");
   const [error, setError] = useState("");
   const [heartRate, setHeartRate] = useState(0);
@@ -69,6 +70,9 @@ export function BluetoothConnect({ onConnected, onBack }: BluetoothConnectProps)
         }
         console.log("Heart rate received:", bpm);
         handleHeartRateUpdate(bpm);
+        if (onHeartRateChange) {
+          onHeartRateChange(bpm);
+        }
       });
 
       localStorage.setItem("cheetahfit_heartrate_device", device.id);

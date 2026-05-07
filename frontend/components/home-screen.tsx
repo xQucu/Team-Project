@@ -54,6 +54,8 @@ export function HomeScreen({ userName = "User", onLogout, theme = "dark", onTogg
   const [bluetoothHeartRate, setBluetoothHeartRate] = useState(0);
   const [bluetoothDevice, setBluetoothDevice] = useState<any>(null);
   const bluetoothDeviceRef = useRef<any>(null);
+  const bluetoothHeartRateCallbackRef = useRef<((bpm: number) => void) | null>(null);
+  const liveSessionHeartRateRef = useRef<((bpm: number) => void) | null>(null);
   const [chatFullscreen, setChatFullscreen] = useState(false);
   const [isTyping, setIsTyping] = useState(false);
   const [trainingData, setTrainingData] = useState<TrainingDay[]>([]);
@@ -271,7 +273,8 @@ export function HomeScreen({ userName = "User", onLogout, theme = "dark", onTogg
     return (
       <LiveSession
         initialHeartRate={bluetoothHeartRate}
-        onHeartRateUpdate={(bpm) => setBluetoothHeartRate(bpm)}
+        heartRate={bluetoothHeartRate > 0 ? bluetoothHeartRate : undefined}
+        onRegisterHeartRateUpdate={(fn) => { liveSessionHeartRateRef.current = fn; }}
         onFinish={() => {
           setIsTraining(false);
           setBluetoothHeartRate(0);
@@ -297,6 +300,12 @@ export function HomeScreen({ userName = "User", onLogout, theme = "dark", onTogg
           const interval = setInterval(() => {
             if (!isTraining) clearInterval(interval);
           }, 100);
+        }}
+        onHeartRateChange={(bpm) => {
+          setBluetoothHeartRate(bpm);
+          if (liveSessionHeartRateRef.current) {
+            liveSessionHeartRateRef.current(bpm);
+          }
         }}
         onBack={() => setIsConnectingBluetooth(false)}
       />
