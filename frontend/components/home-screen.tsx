@@ -77,7 +77,7 @@ export function HomeScreen({ userName = "User", onLogout, theme = "dark", onTogg
 
   useEffect(() => {
     // Fetch workouts
-    fetch("http://localhost:3000/api/auth/workouts/", { credentials: "include" })
+    fetch("/api/auth/workouts/", { credentials: "include" })
       .then(res => res.json())
       .then(data => {
         const workouts = (data.workouts || []).map((w: any) => ({
@@ -95,7 +95,7 @@ export function HomeScreen({ userName = "User", onLogout, theme = "dark", onTogg
       });
 
     // Fetch profile
-    fetch("http://localhost:3000/api/auth/me/", { credentials: "include" })
+    fetch("/api/auth/me/", { credentials: "include" })
       .then(res => res.json())
       .then(data => {
         if (data.profile) {
@@ -140,7 +140,7 @@ export function HomeScreen({ userName = "User", onLogout, theme = "dark", onTogg
     setIsTyping(true);
 
     try {
-      const res = await fetch("http://localhost:3000/api/auth/chat/", {
+      const res = await fetch("/api/auth/chat/", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ 
@@ -199,7 +199,7 @@ export function HomeScreen({ userName = "User", onLogout, theme = "dark", onTogg
 
       // Refresh workout data if modifications or new workouts
       if ((data.modifications_applied && data.modifications_applied.length > 0) || (data.newly_created > 0)) {
-        fetch("http://localhost:3000/api/auth/workouts/", { credentials: "include" })
+        fetch("/api/auth/workouts/", { credentials: "include" })
           .then(res => res.json())
           .then(workoutData => {
             const workouts = (workoutData.workouts || []).map((w: any) => ({
@@ -465,7 +465,7 @@ export function HomeScreen({ userName = "User", onLogout, theme = "dark", onTogg
           data={profileData}
           onSave={async (updated) => {
             try {
-              const res = await fetch("http://localhost:3000/api/auth/profile/update/", {
+              const res = await fetch("/api/auth/profile/update/", {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
                 body: JSON.stringify(updated),
@@ -493,7 +493,7 @@ export function HomeScreen({ userName = "User", onLogout, theme = "dark", onTogg
           }}
           onSave={async (updated) => {
             try {
-              const res = await fetch("http://localhost:3000/api/auth/workouts/modify/", {
+              const res = await fetch("/api/auth/workouts/modify/", {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
                 body: JSON.stringify({
@@ -509,7 +509,7 @@ export function HomeScreen({ userName = "User", onLogout, theme = "dark", onTogg
                 setEditModalOpen(false);
                 setEditingWorkout(null);
                 // Refresh workouts
-                fetch("http://localhost:3000/api/auth/workouts/", { credentials: "include" })
+                fetch("/api/auth/workouts/", { credentials: "include" })
                   .then(res => res.json())
                   .then(data => {
                     const workouts = (data.workouts || []).map((w: any) => ({
@@ -529,7 +529,7 @@ export function HomeScreen({ userName = "User", onLogout, theme = "dark", onTogg
           }}
           onDelete={async (id) => {
             try {
-              const res = await fetch("http://localhost:3000/api/auth/workouts/modify/", {
+              const res = await fetch("/api/auth/workouts/modify/", {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
                 body: JSON.stringify({
@@ -542,7 +542,7 @@ export function HomeScreen({ userName = "User", onLogout, theme = "dark", onTogg
                 setEditModalOpen(false);
                 setEditingWorkout(null);
                 // Refresh workouts
-                fetch("http://localhost:3000/api/auth/workouts/", { credentials: "include" })
+                fetch("/api/auth/workouts/", { credentials: "include" })
                   .then(res => res.json())
                   .then(data => {
                     const workouts = (data.workouts || []).map((w: any) => ({
