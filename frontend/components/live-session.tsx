@@ -28,13 +28,23 @@ interface LiveSessionProps {
   onBack: () => void;
 }
 
-export function LiveSession({ initialHeartRate = 0, heartRate: externalHeartRate, onHeartRateUpdate, onRegisterHeartRateUpdate, onFinish, onBack }: LiveSessionProps) {
+export function LiveSession({
+  initialHeartRate = 0,
+  heartRate: externalHeartRate,
+  onHeartRateUpdate,
+  onRegisterHeartRateUpdate,
+  onFinish,
+  onBack,
+}: LiveSessionProps) {
   const [isPaused, setIsPaused] = useState(false);
   const [elapsedSeconds, setElapsedSeconds] = useState(0);
-  const [internalHeartRate, setInternalHeartRate] = useState(initialHeartRate || 142);
+  const [internalHeartRate, setInternalHeartRate] = useState(
+    initialHeartRate || 142,
+  );
   const [hasBluetooth, setHasBluetooth] = useState(initialHeartRate > 0);
-  
-  const heartRate = externalHeartRate !== undefined ? externalHeartRate : internalHeartRate;
+
+  const heartRate =
+    externalHeartRate !== undefined ? externalHeartRate : internalHeartRate;
   const [distance, setDistance] = useState(0);
   const [speed, setSpeed] = useState(0);
   const [quote] = useState(
@@ -51,7 +61,10 @@ export function LiveSession({ initialHeartRate = 0, heartRate: externalHeartRate
       // Only simulate stats if no Bluetooth connected
       if (!hasBluetooth) {
         setInternalHeartRate((prev: number) =>
-          Math.min(180, Math.max(120, prev + Math.floor(Math.random() * 5) - 2)),
+          Math.min(
+            180,
+            Math.max(120, prev + Math.floor(Math.random() * 5) - 2),
+          ),
         );
       }
       setDistance((prev) => prev + Math.random() * 0.01);
@@ -145,15 +158,15 @@ export function LiveSession({ initialHeartRate = 0, heartRate: externalHeartRate
                 {heartRate}
               </span>
             </div>
-            <div className="h-2 bg-muted rounded-full overflow-hidden">
-              <div
-                className={`h-full ${hrZone.color} transition-all duration-500`}
-                style={{ width: hrZone.width }}
-              />
-            </div>
-            <p className="text-center text-orange-500 font-semibold text-sm tracking-wider">
-              {hrZone.label}
-            </p>
+            {/* <div className="h-2 bg-muted rounded-full overflow-hidden"> */}
+            {/*   <div */}
+            {/*     className={`h-full ${hrZone.color} transition-all duration-500`} */}
+            {/*     style={{ width: hrZone.width }} */}
+            {/*   /> */}
+            {/* </div> */}
+            {/* <p className="text-center text-orange-500 font-semibold text-sm tracking-wider"> */}
+            {/*   {hrZone.label} */}
+            {/* </p> */}
           </div>
         </div>
 
