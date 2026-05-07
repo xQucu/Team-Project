@@ -153,17 +153,15 @@ export function HomeScreen({ userName = "User", onLogout, theme = "dark", onTogg
 
     const handlePosition = (position: GeolocationPosition) => {
       const { latitude: lat, longitude: lng, speed } = position.coords;
+      const speedKmh = speed ? speed * 3.6 : 0;
       
-      if (lastPositionRef.current) {
+      if (speedKmh >= 5 && lastPositionRef.current) {
         const dist = haversineDistance(lastPositionRef.current.lat, lastPositionRef.current.lng, lat, lng);
         setGpsDistance(prev => prev + dist);
       }
       
       lastPositionRef.current = { lat, lng };
-      
-      if (speed && speed > 0) {
-        setGpsSpeed(speed * 3.6);
-      }
+      setGpsSpeed(speedKmh >= 5 ? speedKmh : 0);
     };
 
     const handleError = (error: GeolocationPositionError) => {
