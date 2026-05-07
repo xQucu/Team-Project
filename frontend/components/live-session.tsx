@@ -22,6 +22,8 @@ const motivationalQuotes = [
 interface LiveSessionProps {
   initialHeartRate?: number;
   heartRate?: number;
+  speed?: number;
+  distance?: number;
   onHeartRateUpdate?: (bpm: number) => void;
   onRegisterHeartRateUpdate?: (callback: (bpm: number) => void) => void;
   onFinish: () => void;
@@ -31,6 +33,8 @@ interface LiveSessionProps {
 export function LiveSession({
   initialHeartRate = 0,
   heartRate: externalHeartRate,
+  speed: externalSpeed,
+  distance: externalDistance,
   onHeartRateUpdate,
   onRegisterHeartRateUpdate,
   onFinish,
@@ -45,8 +49,8 @@ export function LiveSession({
 
   const heartRate =
     externalHeartRate !== undefined ? externalHeartRate : internalHeartRate;
-  const [distance, setDistance] = useState(0);
-  const [speed, setSpeed] = useState(0);
+  const distance = externalDistance ?? 0;
+  const speed = externalSpeed ?? 0;
   const [quote] = useState(
     () =>
       motivationalQuotes[Math.floor(Math.random() * motivationalQuotes.length)],
@@ -58,7 +62,6 @@ export function LiveSession({
 
     const interval = setInterval(() => {
       setElapsedSeconds((prev) => prev + 1);
-      // Only simulate stats if no Bluetooth connected
       if (!hasBluetooth) {
         setInternalHeartRate((prev: number) =>
           Math.min(
@@ -67,8 +70,6 @@ export function LiveSession({
           ),
         );
       }
-      setDistance((prev) => prev + Math.random() * 0.01);
-      setSpeed((prev) => Math.max(0, 10 + Math.random() * 5));
     }, 1000);
 
     return () => clearInterval(interval);

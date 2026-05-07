@@ -56,6 +56,10 @@ export function HomeScreen({ userName = "User", onLogout, theme = "dark", onTogg
   const bluetoothDeviceRef = useRef<any>(null);
   const bluetoothHeartRateCallbackRef = useRef<((bpm: number) => void) | null>(null);
   const liveSessionHeartRateRef = useRef<((bpm: number) => void) | null>(null);
+  const [gpsSpeed, setGpsSpeed] = useState(0);
+  const [gpsDistance, setGpsDistance] = useState(0);
+  const gpsWatchIdRef = useRef<number | null>(null);
+  const lastPositionRef = useRef<{ lat: number; lng: number } | null>(null);
   const [chatFullscreen, setChatFullscreen] = useState(false);
   const [isTyping, setIsTyping] = useState(false);
   const [trainingData, setTrainingData] = useState<TrainingDay[]>([]);
@@ -119,6 +123,65 @@ export function HomeScreen({ userName = "User", onLogout, theme = "dark", onTogg
         }
       });
   }, []);
+
+  // GPS tracking for live session
+  useEffect(() => {
+    if (!isTraining) {
+      if (gpsWatchIdRef.current !== null) {
+        navigator.geolocation.clearWatch(gpsWatchIdRef.current);
+        gpsWatchIdRef.current = null;
+      }
+      lastPositionRef.current = null;
+      setGpsSpeed(0);
+      setGpsDistance(0);
+      return;
+    }
+
+    if (!navigator.geolocation) {
+      console.error("GPS not available: navigator.geolocation not supported");
+      return;
+    }
+
+    const haversineDistance = (lat1: number, lng1: number, lat2: number, lng2: number) => {
+      const R = 6371;
+      const dLat = (lat2 - lat1) * Math.PI / 180;
+      const dLng = (lng2 - lng1) * Math.PI / 180;
+      const a = Math.sin(dLat / 2) ** 2 + Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) * Math.sin(dLng / 2) ** 2;
+      const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+      return R * c;
+    };
+
+    const handlePosition = (position: GeolocationPosition) => {
+      const { latitude: lat, longitude: lng, speed } = position.coords;
+      
+      if (lastPositionRef.current) {
+        const dist = haversineDistance(lastPositionRef.current.lat, lastPositionRef.current.lng, lat, lng);
+        setGpsDistance(prev => prev + dist);
+      }
+      
+      lastPositionRef.current = { lat, lng };
+      
+      if (speed && speed > 0) {
+        setGpsSpeed(speed * 3.6);
+      }
+    };
+
+    const handleError = (error: GeolocationPositionError) => {
+      console.error("GPS error:", error.message);
+    };
+
+    gpsWatchIdRef.current = navigator.geolocation.watchPosition(handlePosition, handleError, {
+      enableHighAccuracy: true,
+      maximumAge: 1000,
+    });
+
+    return () => {
+      if (gpsWatchIdRef.current !== null) {
+        navigator.geolocation.clearWatch(gpsWatchIdRef.current);
+        gpsWatchIdRef.current = null;
+      }
+    };
+  }, [isTraining]);
 
   // Get training for selected date
   const selectedTraining = useMemo(() => {
@@ -274,6 +337,8 @@ export function HomeScreen({ userName = "User", onLogout, theme = "dark", onTogg
       <LiveSession
         initialHeartRate={bluetoothHeartRate}
         heartRate={bluetoothHeartRate > 0 ? bluetoothHeartRate : undefined}
+        speed={gpsSpeed}
+        distance={gpsDistance}
         onRegisterHeartRateUpdate={(fn) => { liveSessionHeartRateRef.current = fn; }}
         onFinish={() => {
           setIsTraining(false);
