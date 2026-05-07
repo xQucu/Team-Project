@@ -5,8 +5,9 @@ import { FullCalendar } from "@/components/full-calendar";
 import { LiveSession } from "@/components/live-session";
 import { TrainingCard } from "@/components/training-card";
 import { TwoWeekCalendar } from "@/components/two-week-calendar";
+import { BluetoothConnect } from "@/components/bluetooth-connect";
 import { ArrowLeft, LogOut, Menu, Settings, Sun, Moon, User, X } from "lucide-react";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState, useRef } from "react";
 
 interface ProfileData {
   name: string;
@@ -49,6 +50,10 @@ export function HomeScreen({ userName = "User", onLogout, theme = "dark", onTogg
   const [menuOpen, setMenuOpen] = useState(false);
   const [showFullCalendar, setShowFullCalendar] = useState(false);
   const [isTraining, setIsTraining] = useState(false);
+  const [isConnectingBluetooth, setIsConnectingBluetooth] = useState(false);
+  const [bluetoothHeartRate, setBluetoothHeartRate] = useState(0);
+  const [bluetoothDevice, setBluetoothDevice] = useState<any>(null);
+  const bluetoothDeviceRef = useRef<any>(null);
   const [chatFullscreen, setChatFullscreen] = useState(false);
   const [isTyping, setIsTyping] = useState(false);
   const [trainingData, setTrainingData] = useState<TrainingDay[]>([]);
@@ -265,8 +270,35 @@ export function HomeScreen({ userName = "User", onLogout, theme = "dark", onTogg
   if (isTraining) {
     return (
       <LiveSession
-        onFinish={() => setIsTraining(false)}
-        onBack={() => setIsTraining(false)}
+        initialHeartRate={bluetoothHeartRate}
+        onHeartRateUpdate={(bpm) => setBluetoothHeartRate(bpm)}
+        onFinish={() => {
+          setIsTraining(false);
+          setBluetoothHeartRate(0);
+        }}
+        onBack={() => {
+          setIsTraining(false);
+          setBluetoothHeartRate(0);
+        }}
+      />
+    );
+  }
+
+  // Show Bluetooth pairing
+  if (isConnectingBluetooth) {
+    return (
+      <BluetoothConnect
+        onConnected={(device, heartRate, onHeartRateUpdate) => {
+          bluetoothDeviceRef.current = device;
+          setBluetoothDevice(device);
+          setBluetoothHeartRate(heartRate);
+          setIsConnectingBluetooth(false);
+          setIsTraining(true);
+          const interval = setInterval(() => {
+            if (!isTraining) clearInterval(interval);
+          }, 100);
+        }}
+        onBack={() => setIsConnectingBluetooth(false)}
       />
     );
   }
@@ -359,7 +391,7 @@ export function HomeScreen({ userName = "User", onLogout, theme = "dark", onTogg
           }
           onStartTraining={
             selectedTraining.type === "workout"
-              ? () => setIsTraining(true)
+              ? () => setIsConnectingBluetooth(true)
               : undefined
           }
           onEdit={() => handleEditWorkout(selectedDate, selectedTraining)}

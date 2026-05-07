@@ -20,14 +20,17 @@ const motivationalQuotes = [
 ];
 
 interface LiveSessionProps {
+  initialHeartRate?: number;
+  onHeartRateUpdate?: (bpm: number) => void;
   onFinish: () => void;
   onBack: () => void;
 }
 
-export function LiveSession({ onFinish, onBack }: LiveSessionProps) {
+export function LiveSession({ initialHeartRate = 0, onHeartRateUpdate, onFinish, onBack }: LiveSessionProps) {
   const [isPaused, setIsPaused] = useState(false);
   const [elapsedSeconds, setElapsedSeconds] = useState(0);
-  const [heartRate, setHeartRate] = useState(142);
+  const [heartRate, setHeartRate] = useState(initialHeartRate || 142);
+  const [hasBluetooth, setHasBluetooth] = useState(initialHeartRate > 0);
   const [distance, setDistance] = useState(0);
   const [speed, setSpeed] = useState(0);
   const [quote] = useState(
@@ -41,16 +44,24 @@ export function LiveSession({ onFinish, onBack }: LiveSessionProps) {
 
     const interval = setInterval(() => {
       setElapsedSeconds((prev) => prev + 1);
-      // Simulate changing stats
-      setHeartRate((prev) =>
-        Math.min(180, Math.max(120, prev + Math.floor(Math.random() * 5) - 2)),
-      );
+      // Only simulate stats if no Bluetooth connected
+      if (!hasBluetooth) {
+        setHeartRate((prev) =>
+          Math.min(180, Math.max(120, prev + Math.floor(Math.random() * 5) - 2)),
+        );
+      }
       setDistance((prev) => prev + Math.random() * 0.01);
       setSpeed((prev) => Math.max(0, 10 + Math.random() * 5));
     }, 1000);
 
     return () => clearInterval(interval);
-  }, [isPaused]);
+  }, [isPaused, hasBluetooth]);
+
+  // Sync Bluetooth heart rate updates
+  useEffect(() => {
+    if (!onHeartRateUpdate || initialHeartRate === 0) return;
+    setHasBluetooth(true);
+  }, [initialHeartRate, onHeartRateUpdate]);
 
   const formatTime = useCallback((seconds: number) => {
     const mins = Math.floor(seconds / 60);
