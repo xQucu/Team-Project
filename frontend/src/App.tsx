@@ -31,7 +31,7 @@ export default function App() {
   const toggleTheme = () => setTheme(t => t === "dark" ? "light" : "dark");
 
   useEffect(() => {
-    fetch("http://localhost:3000/api/auth/me/", { credentials: "include" })
+    fetch("/api/auth/me/", { credentials: "include" })
       .then((res) => {
         if (res.ok) return res.json();
         throw new Error("Not authenticated");
@@ -67,7 +67,7 @@ export default function App() {
   };
 
   const handleOnboardingComplete = (_answers: string[]) => {
-    fetch("http://localhost:3000/api/auth/me/", { credentials: "include" })
+    fetch("/api/auth/me/", { credentials: "include" })
       .then((res) => res.json())
       .then((data) => {
         setUserData(data);
@@ -78,7 +78,7 @@ export default function App() {
 
   const handleLogout = async () => {
     try {
-      await fetch("http://localhost:3000/api/auth/logout/", {
+      await fetch("/api/auth/logout/", {
         method: "POST",
         credentials: "include",
       });

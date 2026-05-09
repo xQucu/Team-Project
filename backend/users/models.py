@@ -56,6 +56,12 @@ class WorkoutSession(models.Model):
     completed_at = models.DateTimeField(null=True, blank=True)
     week_number = models.IntegerField()
     month_number = models.IntegerField()
+    ai_summary = models.TextField(null=True, blank=True)
+    total_duration_seconds = models.IntegerField(null=True, blank=True)
+    total_distance_km = models.DecimalField(max_digits=6, decimal_places=3, null=True, blank=True)
+    avg_heart_rate = models.IntegerField(null=True, blank=True)
+    max_heart_rate = models.IntegerField(null=True, blank=True)
+    avg_speed_kmh = models.DecimalField(max_digits=5, decimal_places=2, null=True, blank=True)
 
     class Meta:
         unique_together = ["user", "date"]
@@ -63,6 +69,21 @@ class WorkoutSession(models.Model):
 
     def __str__(self):
         return f"{self.user.username} - {self.date} - {self.type}"
+
+
+class WorkoutDataPoint(models.Model):
+    user = models.ForeignKey(User, on_delete=models.CASCADE, related_name="data_points")
+    workout_session = models.ForeignKey(WorkoutSession, on_delete=models.CASCADE, related_name="data_points")
+    timestamp = models.DateTimeField(auto_now_add=True)
+    elapsed_seconds = models.IntegerField()
+    distance_km = models.DecimalField(max_digits=6, decimal_places=3)
+    speed_kmh = models.DecimalField(max_digits=5, decimal_places=2)
+    heart_rate = models.IntegerField(null=True, blank=True)
+    latitude = models.DecimalField(max_digits=9, decimal_places=6, null=True, blank=True)
+    longitude = models.DecimalField(max_digits=9, decimal_places=6, null=True, blank=True)
+
+    class Meta:
+        ordering = ['elapsed_seconds']
 
 
 @receiver(post_save, sender=User)

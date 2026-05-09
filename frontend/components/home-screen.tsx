@@ -5,8 +5,9 @@ import { FullCalendar } from "@/components/full-calendar";
 import { LiveSession } from "@/components/live-session";
 import { TrainingCard } from "@/components/training-card";
 import { TwoWeekCalendar } from "@/components/two-week-calendar";
+import { BluetoothConnect } from "@/components/bluetooth-connect";
 import { ArrowLeft, LogOut, Menu, Settings, Sun, Moon, User, X } from "lucide-react";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState, useRef } from "react";
 
 interface ProfileData {
   name: string;
@@ -44,11 +45,66 @@ const formatDateKey = (date: Date) => {
   return `${day}.${month}.${year}`;
 };
 
+// Training session persistence
+const TRAINING_STORAGE_KEY = "cheetahfit_training_session";
+const SESSION_MAX_AGE_MS = 24 * 60 * 60 * 1000; // 24 hours
+
+interface PersistedTrainingState {
+  isActive: boolean;
+  isPaused: boolean;
+  startTimestamp: number;
+  pausedAt: number | null;
+  pausedDuration: number;
+  bluetoothDeviceId: string | null;
+  gpsDistance: number;
+  workoutId: number | null;
+}
+
+const saveTrainingState = (state: PersistedTrainingState) => {
+  localStorage.setItem(TRAINING_STORAGE_KEY, JSON.stringify(state));
+};
+
+const loadTrainingState = (): PersistedTrainingState | null => {
+  try {
+    const stored = localStorage.getItem(TRAINING_STORAGE_KEY);
+    if (!stored) return null;
+    
+    const state: PersistedTrainingState = JSON.parse(stored);
+    
+    // Check if session is stale (>24h old)
+    if (state.isActive && state.startTimestamp) {
+      const elapsed = Date.now() - state.startTimestamp;
+      if (elapsed > SESSION_MAX_AGE_MS) {
+        localStorage.removeItem(TRAINING_STORAGE_KEY);
+        return null;
+      }
+    }
+    
+    return state;
+  } catch {
+    return null;
+  }
+};
+
+const clearTrainingState = () => {
+  localStorage.removeItem(TRAINING_STORAGE_KEY);
+};
+
 export function HomeScreen({ userName = "User", onLogout, theme = "dark", onToggleTheme }: HomeScreenProps) {
   const [selectedDate, setSelectedDate] = useState(new Date());
   const [menuOpen, setMenuOpen] = useState(false);
   const [showFullCalendar, setShowFullCalendar] = useState(false);
   const [isTraining, setIsTraining] = useState(false);
+  const [isConnectingBluetooth, setIsConnectingBluetooth] = useState(false);
+  const [bluetoothHeartRate, setBluetoothHeartRate] = useState(0);
+  const [bluetoothDevice, setBluetoothDevice] = useState<any>(null);
+  const bluetoothDeviceRef = useRef<any>(null);
+  const bluetoothHeartRateCallbackRef = useRef<((bpm: number) => void) | null>(null);
+  const liveSessionHeartRateRef = useRef<((bpm: number) => void) | null>(null);
+  const [gpsSpeed, setGpsSpeed] = useState(0);
+  const [gpsDistance, setGpsDistance] = useState(0);
+  const gpsWatchIdRef = useRef<number | null>(null);
+  const lastPositionRef = useRef<{ lat: number; lng: number } | null>(null);
   const [chatFullscreen, setChatFullscreen] = useState(false);
   const [isTyping, setIsTyping] = useState(false);
   const [trainingData, setTrainingData] = useState<TrainingDay[]>([]);
@@ -74,10 +130,17 @@ export function HomeScreen({ userName = "User", onLogout, theme = "dark", onTogg
   const [editModalOpen, setEditModalOpen] = useState(false);
   const [profileModalOpen, setProfileModalOpen] = useState(false);
   const [editingWorkout, setEditingWorkout] = useState<{id?: number; date: string; type: string; duration: string; description: string} | null>(null);
+  const [restoredElapsedSeconds, setRestoredElapsedSeconds] = useState(0);
+  const [bluetoothDeviceId, setBluetoothDeviceId] = useState<string | null>(null);
+  const [isPaused, setIsPaused] = useState(false);
+  const isRestoredSession = useRef(false);
+  const [workoutId, setWorkoutId] = useState<number | null>(null);
+  const dataBufferRef = useRef<any[]>([]);
+  const elapsedSecondsRef = useRef(0);
 
   useEffect(() => {
     // Fetch workouts
-    fetch("http://localhost:3000/api/auth/workouts/", { credentials: "include" })
+    fetch("/api/auth/workouts/", { credentials: "include" })
       .then(res => res.json())
       .then(data => {
         const workouts = (data.workouts || []).map((w: any) => ({
@@ -95,7 +158,7 @@ export function HomeScreen({ userName = "User", onLogout, theme = "dark", onTogg
       });
 
     // Fetch profile
-    fetch("http://localhost:3000/api/auth/me/", { credentials: "include" })
+    fetch("/api/auth/me/", { credentials: "include" })
       .then(res => res.json())
       .then(data => {
         if (data.profile) {
@@ -111,7 +174,164 @@ export function HomeScreen({ userName = "User", onLogout, theme = "dark", onTogg
           });
         }
       });
+
+    // Restore training session if exists
+    const savedState = loadTrainingState();
+    if (savedState && savedState.isActive) {
+      const now = Date.now();
+      const totalPaused = savedState.pausedDuration;
+      const currentPauseDuration = savedState.isPaused && savedState.pausedAt
+        ? (now - savedState.pausedAt) / 1000
+        : 0;
+      const elapsed = Math.floor((now - savedState.startTimestamp) / 1000 - totalPaused - currentPauseDuration);
+      
+      setRestoredElapsedSeconds(Math.max(0, elapsed));
+      setGpsDistance(savedState.gpsDistance);
+      setBluetoothDeviceId(savedState.bluetoothDeviceId);
+      setIsPaused(savedState.isPaused);
+      setWorkoutId(savedState.workoutId);
+      
+      // Auto-start training session
+      setIsConnectingBluetooth(true);
+      isRestoredSession.current = true;
+      
+      // Restore Bluetooth device ID for reconnection
+      if (savedState.bluetoothDeviceId) {
+        localStorage.setItem("cheetahfit_heartrate_device", savedState.bluetoothDeviceId);
+      }
+    }
   }, []);
+
+  // GPS tracking for live session
+  useEffect(() => {
+    if (!isTraining) {
+      if (gpsWatchIdRef.current !== null) {
+        navigator.geolocation.clearWatch(gpsWatchIdRef.current);
+        gpsWatchIdRef.current = null;
+      }
+      lastPositionRef.current = null;
+      setGpsSpeed(0);
+      setGpsDistance(0);
+      return;
+    }
+
+    if (!navigator.geolocation) {
+      console.error("GPS not available: navigator.geolocation not supported");
+      return;
+    }
+
+    const haversineDistance = (lat1: number, lng1: number, lat2: number, lng2: number) => {
+      const R = 6371;
+      const dLat = (lat2 - lat1) * Math.PI / 180;
+      const dLng = (lng2 - lng1) * Math.PI / 180;
+      const a = Math.sin(dLat / 2) ** 2 + Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) * Math.sin(dLng / 2) ** 2;
+      const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+      return R * c;
+    };
+
+    const handlePosition = (position: GeolocationPosition) => {
+      const { latitude: lat, longitude: lng, speed } = position.coords;
+      const speedKmh = speed ? speed * 3.6 : 0;
+      
+      if (speedKmh >= 5 && lastPositionRef.current) {
+        const dist = haversineDistance(lastPositionRef.current.lat, lastPositionRef.current.lng, lat, lng);
+        setGpsDistance(prev => prev + dist);
+      }
+      
+      lastPositionRef.current = { lat, lng };
+      setGpsSpeed(speedKmh >= 5 ? speedKmh : 0);
+    };
+
+    const handleError = (error: GeolocationPositionError) => {
+      console.error("GPS error:", error.message);
+    };
+
+    gpsWatchIdRef.current = navigator.geolocation.watchPosition(handlePosition, handleError, {
+      enableHighAccuracy: true,
+      maximumAge: 1000,
+    });
+
+    return () => {
+      if (gpsWatchIdRef.current !== null) {
+        navigator.geolocation.clearWatch(gpsWatchIdRef.current);
+        gpsWatchIdRef.current = null;
+      }
+    };
+  }, [isTraining]);
+
+  // Save initial training start timestamp (only once when training starts)
+  const hasInitializedRef = useRef(false);
+  useEffect(() => {
+    if (!isTraining || hasInitializedRef.current) return;
+    hasInitializedRef.current = true;
+
+    const existing = loadTrainingState();
+    if (!existing || !existing.startTimestamp) {
+      saveTrainingState({
+        isActive: true,
+        isPaused: false,
+        startTimestamp: Date.now(),
+        pausedAt: null,
+        pausedDuration: 0,
+        bluetoothDeviceId: bluetoothDevice?.id || null,
+        gpsDistance: 0,
+        workoutId: workoutId,
+      });
+    }
+  }, [isTraining, workoutId]);
+
+  // Save data to backend every 5 seconds (while training and not paused)
+  useEffect(() => {
+    if (!isTraining || isPaused || !workoutId) return;
+
+    const interval = setInterval(async () => {
+      const dataPoint = {
+        elapsed_seconds: elapsedSecondsRef.current,
+        distance_km: gpsDistance,
+        speed_kmh: gpsSpeed,
+        heart_rate: bluetoothHeartRate > 0 ? bluetoothHeartRate : null,
+        latitude: lastPositionRef.current?.lat || null,
+        longitude: lastPositionRef.current?.lng || null,
+      };
+
+      dataBufferRef.current.push(dataPoint);
+
+      if (dataBufferRef.current.length >= 1) {
+        try {
+          await fetch("/api/auth/workout-data/save/", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              workout_id: workoutId,
+              data_points: dataBufferRef.current,
+            }),
+            credentials: "include",
+          });
+          dataBufferRef.current = [];
+        } catch (err) {
+          console.error("Failed to save workout data:", err);
+        }
+      }
+    }, 5000);
+
+    return () => clearInterval(interval);
+  }, [isTraining, isPaused, workoutId, gpsDistance, gpsSpeed, bluetoothHeartRate]);
+
+  // Persist GPS distance and device updates (preserve existing timestamp)
+  useEffect(() => {
+    if (!isTraining) return;
+
+    const existing = loadTrainingState();
+    if (!existing) return;
+
+    saveTrainingState({
+      ...existing,
+      gpsDistance,
+      bluetoothDeviceId: bluetoothDevice?.id || existing.bluetoothDeviceId || null,
+    });
+  }, [isTraining, gpsDistance, bluetoothDevice]);
+
+  
 
   // Get training for selected date
   const selectedTraining = useMemo(() => {
@@ -140,7 +360,7 @@ export function HomeScreen({ userName = "User", onLogout, theme = "dark", onTogg
     setIsTyping(true);
 
     try {
-      const res = await fetch("http://localhost:3000/api/auth/chat/", {
+      const res = await fetch("/api/auth/chat/", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ 
@@ -199,7 +419,7 @@ export function HomeScreen({ userName = "User", onLogout, theme = "dark", onTogg
 
       // Refresh workout data if modifications or new workouts
       if ((data.modifications_applied && data.modifications_applied.length > 0) || (data.newly_created > 0)) {
-        fetch("http://localhost:3000/api/auth/workouts/", { credentials: "include" })
+        fetch("/api/auth/workouts/", { credentials: "include" })
           .then(res => res.json())
           .then(workoutData => {
             const workouts = (workoutData.workouts || []).map((w: any) => ({
@@ -265,8 +485,107 @@ export function HomeScreen({ userName = "User", onLogout, theme = "dark", onTogg
   if (isTraining) {
     return (
       <LiveSession
-        onFinish={() => setIsTraining(false)}
-        onBack={() => setIsTraining(false)}
+        initialHeartRate={bluetoothHeartRate}
+        heartRate={bluetoothHeartRate >= 0 ? bluetoothHeartRate : undefined}
+        speed={gpsSpeed}
+        distance={gpsDistance}
+        initialElapsedSeconds={restoredElapsedSeconds}
+        initialIsPaused={isPaused}
+        onElapsedChange={(seconds) => { elapsedSecondsRef.current = seconds; }}
+        onPauseChange={(paused) => {
+          setIsPaused(paused);
+          const existing = loadTrainingState();
+          if (!existing) return;
+          
+          if (paused) {
+            saveTrainingState({
+              ...existing,
+              isPaused: true,
+              pausedAt: Date.now(),
+            });
+          } else {
+            const additionalPause = existing.pausedAt ? (Date.now() - existing.pausedAt) / 1000 : 0;
+            saveTrainingState({
+              ...existing,
+              isPaused: false,
+              pausedAt: null,
+              pausedDuration: (existing.pausedDuration || 0) + additionalPause,
+            });
+          }
+        }}
+        onRegisterHeartRateUpdate={(fn) => { liveSessionHeartRateRef.current = fn; }}
+        onFinish={async () => {
+          const currentWorkoutId = workoutId;
+
+          if (dataBufferRef.current.length > 0 && currentWorkoutId) {
+            try {
+              await fetch("/api/auth/workout-data/save/", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({
+                  workout_id: currentWorkoutId,
+                  data_points: dataBufferRef.current,
+                }),
+                credentials: "include",
+              });
+            } catch (err) {
+              console.error("Failed to save remaining data:", err);
+            }
+          }
+
+          if (currentWorkoutId) {
+            try {
+              await fetch("/api/auth/workout-data/finish/", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ workout_id: currentWorkoutId }),
+                credentials: "include",
+              });
+            } catch (err) {
+              console.error("Failed to finish workout:", err);
+            }
+          }
+
+          clearTrainingState();
+          dataBufferRef.current = [];
+          elapsedSecondsRef.current = 0;
+          setIsTraining(false);
+          setBluetoothHeartRate(0);
+          setRestoredElapsedSeconds(0);
+          setGpsDistance(0);
+          setIsPaused(false);
+          setWorkoutId(null);
+        }}
+      />
+    );
+  }
+
+  // Show Bluetooth pairing
+  if (isConnectingBluetooth) {
+    return (
+      <BluetoothConnect
+        onConnected={(device, heartRate, onHeartRateUpdate) => {
+          bluetoothDeviceRef.current = device;
+          setBluetoothDevice(device);
+          setBluetoothHeartRate(heartRate);
+          setIsConnectingBluetooth(false);
+          setIsTraining(true);
+          const interval = setInterval(() => {
+            if (!isTraining) clearInterval(interval);
+          }, 100);
+        }}
+        onHeartRateChange={(bpm) => {
+          setBluetoothHeartRate(bpm);
+          if (liveSessionHeartRateRef.current) {
+            liveSessionHeartRateRef.current(bpm);
+          }
+        }}
+        onBack={() => {
+          setIsConnectingBluetooth(false);
+          if (isRestoredSession.current) {
+            setIsTraining(true);
+          }
+        }}
       />
     );
   }
@@ -358,8 +677,11 @@ export function HomeScreen({ userName = "User", onLogout, theme = "dark", onTogg
               : undefined
           }
           onStartTraining={
-            selectedTraining.type === "workout"
-              ? () => setIsTraining(true)
+            selectedTraining.type === "workout" && selectedTraining.id
+              ? () => {
+                  setWorkoutId(selectedTraining.id!);
+                  setIsConnectingBluetooth(true);
+                }
               : undefined
           }
           onEdit={() => handleEditWorkout(selectedDate, selectedTraining)}
@@ -465,7 +787,7 @@ export function HomeScreen({ userName = "User", onLogout, theme = "dark", onTogg
           data={profileData}
           onSave={async (updated) => {
             try {
-              const res = await fetch("http://localhost:3000/api/auth/profile/update/", {
+              const res = await fetch("/api/auth/profile/update/", {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
                 body: JSON.stringify(updated),
@@ -493,7 +815,7 @@ export function HomeScreen({ userName = "User", onLogout, theme = "dark", onTogg
           }}
           onSave={async (updated) => {
             try {
-              const res = await fetch("http://localhost:3000/api/auth/workouts/modify/", {
+              const res = await fetch("/api/auth/workouts/modify/", {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
                 body: JSON.stringify({
@@ -509,7 +831,7 @@ export function HomeScreen({ userName = "User", onLogout, theme = "dark", onTogg
                 setEditModalOpen(false);
                 setEditingWorkout(null);
                 // Refresh workouts
-                fetch("http://localhost:3000/api/auth/workouts/", { credentials: "include" })
+                fetch("/api/auth/workouts/", { credentials: "include" })
                   .then(res => res.json())
                   .then(data => {
                     const workouts = (data.workouts || []).map((w: any) => ({
@@ -529,7 +851,7 @@ export function HomeScreen({ userName = "User", onLogout, theme = "dark", onTogg
           }}
           onDelete={async (id) => {
             try {
-              const res = await fetch("http://localhost:3000/api/auth/workouts/modify/", {
+              const res = await fetch("/api/auth/workouts/modify/", {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
                 body: JSON.stringify({
@@ -542,7 +864,7 @@ export function HomeScreen({ userName = "User", onLogout, theme = "dark", onTogg
                 setEditModalOpen(false);
                 setEditingWorkout(null);
                 // Refresh workouts
-                fetch("http://localhost:3000/api/auth/workouts/", { credentials: "include" })
+                fetch("/api/auth/workouts/", { credentials: "include" })
                   .then(res => res.json())
                   .then(data => {
                     const workouts = (data.workouts || []).map((w: any) => ({

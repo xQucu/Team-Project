@@ -1,5 +1,4 @@
 import {
-  ArrowLeft,
   Gauge,
   Heart,
   MapPin,
@@ -20,16 +19,43 @@ const motivationalQuotes = [
 ];
 
 interface LiveSessionProps {
+  initialHeartRate?: number;
+  heartRate?: number;
+  speed?: number;
+  distance?: number;
+  initialElapsedSeconds?: number;
+  initialIsPaused?: boolean;
+  onPauseChange?: (isPaused: boolean) => void;
+  onElapsedChange?: (seconds: number) => void;
+  onHeartRateUpdate?: (bpm: number) => void;
+  onRegisterHeartRateUpdate?: (callback: (bpm: number) => void) => void;
   onFinish: () => void;
-  onBack: () => void;
 }
 
-export function LiveSession({ onFinish, onBack }: LiveSessionProps) {
-  const [isPaused, setIsPaused] = useState(false);
-  const [elapsedSeconds, setElapsedSeconds] = useState(0);
-  const [heartRate, setHeartRate] = useState(142);
-  const [distance, setDistance] = useState(0);
-  const [speed, setSpeed] = useState(0);
+export function LiveSession({
+  initialHeartRate = 0,
+  heartRate: externalHeartRate,
+  speed: externalSpeed,
+  distance: externalDistance,
+  initialElapsedSeconds = 0,
+  initialIsPaused = false,
+  onPauseChange,
+  onElapsedChange,
+  onHeartRateUpdate,
+  onRegisterHeartRateUpdate,
+  onFinish,
+}: LiveSessionProps) {
+  const [isPaused, setIsPaused] = useState(initialIsPaused);
+  const [elapsedSeconds, setElapsedSeconds] = useState(initialElapsedSeconds);
+  const [internalHeartRate, setInternalHeartRate] = useState(
+    initialHeartRate || 142,
+  );
+  const [hasBluetooth, setHasBluetooth] = useState(initialHeartRate > 0);
+
+  const heartRate =
+    externalHeartRate !== undefined ? externalHeartRate : internalHeartRate;
+  const distance = externalDistance ?? 0;
+  const speed = externalSpeed ?? 0;
   const [quote] = useState(
     () =>
       motivationalQuotes[Math.floor(Math.random() * motivationalQuotes.length)],
@@ -40,17 +66,37 @@ export function LiveSession({ onFinish, onBack }: LiveSessionProps) {
     if (isPaused) return;
 
     const interval = setInterval(() => {
-      setElapsedSeconds((prev) => prev + 1);
-      // Simulate changing stats
-      setHeartRate((prev) =>
-        Math.min(180, Math.max(120, prev + Math.floor(Math.random() * 5) - 2)),
-      );
-      setDistance((prev) => prev + Math.random() * 0.01);
-      setSpeed((prev) => Math.max(0, 10 + Math.random() * 5));
+      setElapsedSeconds((prev) => {
+        const newValue = prev + 1;
+        onElapsedChange?.(newValue);
+        return newValue;
+      });
+      if (!hasBluetooth) {
+        setInternalHeartRate((prev: number) =>
+          Math.min(
+            180,
+            Math.max(120, prev + Math.floor(Math.random() * 5) - 2),
+          ),
+        );
+      }
     }, 1000);
 
     return () => clearInterval(interval);
-  }, [isPaused]);
+  }, [isPaused, hasBluetooth]);
+
+  // Sync Bluetooth heart rate updates
+  useEffect(() => {
+    if (externalHeartRate !== undefined) {
+      setHasBluetooth(true);
+    }
+  }, [externalHeartRate]);
+
+  // Register heart rate update callback when Bluetooth connected
+  useEffect(() => {
+    if (initialHeartRate > 0 && onRegisterHeartRateUpdate) {
+      onRegisterHeartRateUpdate(setInternalHeartRate);
+    }
+  }, [initialHeartRate, onRegisterHeartRateUpdate]);
 
   const formatTime = useCallback((seconds: number) => {
     const mins = Math.floor(seconds / 60);
@@ -75,13 +121,7 @@ export function LiveSession({ onFinish, onBack }: LiveSessionProps) {
   return (
     <div className="min-h-screen bg-background flex flex-col">
       {/* Header */}
-      <header className="flex items-center gap-4 p-4 border-b border-border">
-        <button
-          onClick={onBack}
-          className="p-2 hover:bg-secondary rounded-lg transition-colors"
-        >
-          <ArrowLeft className="h-5 w-5 text-foreground" />
-        </button>
+      <header className="flex items-center justify-center p-4 border-b border-border">
         <h1 className="text-xl font-bold text-foreground tracking-wide">
           LIVE SESSION
         </h1>
@@ -116,21 +156,21 @@ export function LiveSession({ onFinish, onBack }: LiveSessionProps) {
 
           {/* Heart rate */}
           <div className="bg-secondary rounded-xl p-4 space-y-3">
-            <div className="flex items-center justify-center gap-2">
-              <Heart className="h-6 w-6 text-red-500 fill-red-500" />
-              <span className="text-3xl font-bold text-foreground">
-                {heartRate}
-              </span>
-            </div>
-            <div className="h-2 bg-muted rounded-full overflow-hidden">
-              <div
-                className={`h-full ${hrZone.color} transition-all duration-500`}
-                style={{ width: hrZone.width }}
-              />
-            </div>
-            <p className="text-center text-orange-500 font-semibold text-sm tracking-wider">
-              {hrZone.label}
-            </p>
+            {heartRate > 0 ? (
+              <>
+                <div className="flex items-center justify-center gap-2">
+                  <Heart className="h-6 w-6 text-red-500 fill-red-500" />
+                  <span className="text-3xl font-bold text-foreground">
+                    {heartRate}
+                  </span>
+                </div>
+              </>
+            ) : (
+              <div className="text-center space-y-2">
+                <p className="text-destructive text-sm">Could not read heart rate</p>
+                <p className="text-2xl font-bold text-muted-foreground">--</p>
+              </div>
+            )}
           </div>
         </div>
 
@@ -155,7 +195,10 @@ export function LiveSession({ onFinish, onBack }: LiveSessionProps) {
         {/* Control buttons */}
         <div className="grid grid-cols-2 gap-3 pt-4">
           <button
-            onClick={() => setIsPaused(!isPaused)}
+            onClick={() => {
+              setIsPaused(!isPaused);
+              onPauseChange?.(!isPaused);
+            }}
             className="flex items-center justify-center gap-2 bg-secondary hover:bg-secondary/80 text-foreground font-semibold py-4 rounded-xl transition-colors"
           >
             {isPaused ? (

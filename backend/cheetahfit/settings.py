@@ -32,7 +32,7 @@ SECRET_KEY = "django-insecure--ac22xrb^ex)9$gj#=g$#v7lqgegi^fdd0=s)x9)20hd+q(nnj
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = True
 
-ALLOWED_HOSTS = []
+ALLOWED_HOSTS = ["*"]
 
 
 # Application definition
@@ -69,6 +69,8 @@ CSRF_TRUSTED_ORIGINS = [
 ]
 
 CORS_ALLOW_CREDENTIALS = True
+
+CORS_ALLOW_ALL_ORIGINS = True
 
 ROOT_URLCONF = "cheetahfit.urls"
 
