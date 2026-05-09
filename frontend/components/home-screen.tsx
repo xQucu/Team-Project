@@ -45,6 +45,50 @@ const formatDateKey = (date: Date) => {
   return `${day}.${month}.${year}`;
 };
 
+// Training session persistence
+const TRAINING_STORAGE_KEY = "cheetahfit_training_session";
+const SESSION_MAX_AGE_MS = 24 * 60 * 60 * 1000; // 24 hours
+
+interface PersistedTrainingState {
+  isActive: boolean;
+  isPaused: boolean;
+  startTimestamp: number;
+  pausedAt: number | null;
+  pausedDuration: number;
+  bluetoothDeviceId: string | null;
+  gpsDistance: number;
+}
+
+const saveTrainingState = (state: PersistedTrainingState) => {
+  localStorage.setItem(TRAINING_STORAGE_KEY, JSON.stringify(state));
+};
+
+const loadTrainingState = (): PersistedTrainingState | null => {
+  try {
+    const stored = localStorage.getItem(TRAINING_STORAGE_KEY);
+    if (!stored) return null;
+    
+    const state: PersistedTrainingState = JSON.parse(stored);
+    
+    // Check if session is stale (>24h old)
+    if (state.isActive && state.startTimestamp) {
+      const elapsed = Date.now() - state.startTimestamp;
+      if (elapsed > SESSION_MAX_AGE_MS) {
+        localStorage.removeItem(TRAINING_STORAGE_KEY);
+        return null;
+      }
+    }
+    
+    return state;
+  } catch {
+    return null;
+  }
+};
+
+const clearTrainingState = () => {
+  localStorage.removeItem(TRAINING_STORAGE_KEY);
+};
+
 export function HomeScreen({ userName = "User", onLogout, theme = "dark", onToggleTheme }: HomeScreenProps) {
   const [selectedDate, setSelectedDate] = useState(new Date());
   const [menuOpen, setMenuOpen] = useState(false);
@@ -85,6 +129,9 @@ export function HomeScreen({ userName = "User", onLogout, theme = "dark", onTogg
   const [editModalOpen, setEditModalOpen] = useState(false);
   const [profileModalOpen, setProfileModalOpen] = useState(false);
   const [editingWorkout, setEditingWorkout] = useState<{id?: number; date: string; type: string; duration: string; description: string} | null>(null);
+  const [restoredElapsedSeconds, setRestoredElapsedSeconds] = useState(0);
+  const [bluetoothDeviceId, setBluetoothDeviceId] = useState<string | null>(null);
+  const [isPaused, setIsPaused] = useState(false);
 
   useEffect(() => {
     // Fetch workouts
@@ -122,6 +169,30 @@ export function HomeScreen({ userName = "User", onLogout, theme = "dark", onTogg
           });
         }
       });
+
+    // Restore training session if exists
+    const savedState = loadTrainingState();
+    if (savedState && savedState.isActive) {
+      const now = Date.now();
+      const totalPaused = savedState.pausedDuration;
+      const currentPauseDuration = savedState.isPaused && savedState.pausedAt
+        ? (now - savedState.pausedAt) / 1000
+        : 0;
+      const elapsed = Math.floor((now - savedState.startTimestamp) / 1000 - totalPaused - currentPauseDuration);
+      
+      setRestoredElapsedSeconds(Math.max(0, elapsed));
+      setGpsDistance(savedState.gpsDistance);
+      setBluetoothDeviceId(savedState.bluetoothDeviceId);
+      setIsPaused(savedState.isPaused);
+      
+      // Auto-start training session
+      setIsTraining(true);
+      
+      // Restore Bluetooth device ID for reconnection
+      if (savedState.bluetoothDeviceId) {
+        localStorage.setItem("cheetahfit_heartrate_device", savedState.bluetoothDeviceId);
+      }
+    }
   }, []);
 
   // GPS tracking for live session
@@ -180,6 +251,42 @@ export function HomeScreen({ userName = "User", onLogout, theme = "dark", onTogg
       }
     };
   }, [isTraining]);
+
+  // Save initial training start timestamp (only once when training starts)
+  const hasInitializedRef = useRef(false);
+  useEffect(() => {
+    if (!isTraining || hasInitializedRef.current) return;
+    hasInitializedRef.current = true;
+
+    const existing = loadTrainingState();
+    if (!existing || !existing.startTimestamp) {
+      saveTrainingState({
+        isActive: true,
+        isPaused: false,
+        startTimestamp: Date.now(),
+        pausedAt: null,
+        pausedDuration: 0,
+        bluetoothDeviceId: bluetoothDevice?.id || null,
+        gpsDistance: 0,
+      });
+    }
+  }, [isTraining]);
+
+  // Persist GPS distance and device updates (preserve existing timestamp)
+  useEffect(() => {
+    if (!isTraining) return;
+
+    const existing = loadTrainingState();
+    if (!existing) return;
+
+    saveTrainingState({
+      ...existing,
+      gpsDistance,
+      bluetoothDeviceId: bluetoothDevice?.id || existing.bluetoothDeviceId || null,
+    });
+  }, [isTraining, gpsDistance, bluetoothDevice]);
+
+  
 
   // Get training for selected date
   const selectedTraining = useMemo(() => {
@@ -337,14 +444,37 @@ export function HomeScreen({ userName = "User", onLogout, theme = "dark", onTogg
         heartRate={bluetoothHeartRate > 0 ? bluetoothHeartRate : undefined}
         speed={gpsSpeed}
         distance={gpsDistance}
+        initialElapsedSeconds={restoredElapsedSeconds}
+        initialIsPaused={isPaused}
+        onPauseChange={(paused) => {
+          setIsPaused(paused);
+          const existing = loadTrainingState();
+          if (!existing) return;
+          
+          if (paused) {
+            saveTrainingState({
+              ...existing,
+              isPaused: true,
+              pausedAt: Date.now(),
+            });
+          } else {
+            const additionalPause = existing.pausedAt ? (Date.now() - existing.pausedAt) / 1000 : 0;
+            saveTrainingState({
+              ...existing,
+              isPaused: false,
+              pausedAt: null,
+              pausedDuration: (existing.pausedDuration || 0) + additionalPause,
+            });
+          }
+        }}
         onRegisterHeartRateUpdate={(fn) => { liveSessionHeartRateRef.current = fn; }}
         onFinish={() => {
+          clearTrainingState();
           setIsTraining(false);
           setBluetoothHeartRate(0);
-        }}
-        onBack={() => {
-          setIsTraining(false);
-          setBluetoothHeartRate(0);
+          setRestoredElapsedSeconds(0);
+          setGpsDistance(0);
+          setIsPaused(false);
         }}
       />
     );

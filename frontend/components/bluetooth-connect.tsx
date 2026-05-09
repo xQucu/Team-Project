@@ -1,5 +1,5 @@
 import { Bluetooth, Heart, Loader2 } from "lucide-react";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 
 interface BluetoothConnectProps {
   onConnected: (device: any, heartRate: number, onHeartRateUpdate: (bpm: number) => void) => void;
@@ -11,6 +11,68 @@ export function BluetoothConnect({ onConnected, onHeartRateChange, onBack }: Blu
   const [status, setStatus] = useState<"idle" | "scanning" | "connecting" | "connected" | "error">("idle");
   const [error, setError] = useState("");
   const [heartRate, setHeartRate] = useState(0);
+  const [hasAutoReconnected, setHasAutoReconnected] = useState(false);
+
+  useEffect(() => {
+    const deviceId = localStorage.getItem("cheetahfit_heartrate_device");
+    if (!deviceId || hasAutoReconnected) return;
+
+    const tryReconnect = async () => {
+      setStatus("scanning");
+      setError("Attempting to reconnect...");
+
+      try {
+        const bt = (navigator as any).bluetooth;
+        if (typeof bt?.getDevices !== "function") {
+          throw new Error("Auto-reconnect not supported");
+        }
+
+        const devices = await bt.getDevices();
+        const device = devices.find((d: any) => d.id === deviceId && d.gatt);
+
+        if (!device) {
+          throw new Error("Device not found");
+        }
+
+        setStatus("connecting");
+        const server = await device.gatt.connect();
+        const service = await server.getPrimaryService("heart_rate");
+        const characteristic = await service.getCharacteristic("heart_rate_measurement");
+        await characteristic.startNotifications();
+
+        characteristic.addEventListener("characteristicvaluechanged", (event: any) => {
+          const value = event.target.value;
+          const flags = value.getUint8(0);
+          let bpm: number;
+          if (flags & 0x1) {
+            bpm = value.getUint16(1);
+          } else {
+            bpm = value.getUint8(1);
+          }
+          handleHeartRateUpdate(bpm);
+          if (onHeartRateChange) {
+            onHeartRateChange(bpm);
+          }
+        });
+
+        setStatus("connected");
+        setHasAutoReconnected(true);
+        setTimeout(() => {
+          onConnected(device, heartRate || 72, handleHeartRateUpdate);
+        }, 500);
+      } catch (err: any) {
+        setStatus("error");
+        setError("Could not read heart rate");
+        setHasAutoReconnected(true);
+        
+        setTimeout(() => {
+          onConnected(null, 0, handleHeartRateUpdate);
+        }, 2000);
+      }
+    };
+
+    tryReconnect();
+  }, []);
 
   const handleHeartRateUpdate = (bpm: number) => {
     setHeartRate(bpm);
@@ -143,23 +205,33 @@ export function BluetoothConnect({ onConnected, onHeartRateChange, onBack }: Blu
         </div>
 
         {status !== "connected" && (
-          <button
-            onClick={connectToDevice}
-            disabled={status === "scanning" || status === "connecting"}
-            className="flex items-center gap-2 bg-primary hover:bg-primary/90 disabled:opacity-50 text-primary-foreground font-semibold py-3 px-8 rounded-xl transition-colors"
-          >
-            {status === "scanning" || status === "connecting" ? (
-              <>
-                <Loader2 className="h-5 w-5 animate-spin" />
-                SEARCHING...
-              </>
-            ) : (
-              <>
-                <Bluetooth className="h-5 w-5" />
-                SCAN FOR DEVICE
-              </>
+          <>
+            <button
+              onClick={connectToDevice}
+              disabled={status === "scanning" || status === "connecting"}
+              className="flex items-center gap-2 bg-primary hover:bg-primary/90 disabled:opacity-50 text-primary-foreground font-semibold py-3 px-8 rounded-xl transition-colors"
+            >
+              {status === "scanning" || status === "connecting" ? (
+                <>
+                  <Loader2 className="h-5 w-5 animate-spin" />
+                  SEARCHING...
+                </>
+              ) : (
+                <>
+                  <Bluetooth className="h-5 w-5" />
+                  SCAN FOR DEVICE
+                </>
+              )}
+            </button>
+            {(status === "error" || error.includes("Could not read")) && (
+              <button
+                onClick={() => onConnected(null, 0, handleHeartRateUpdate)}
+                className="flex items-center gap-2 bg-secondary hover:bg-secondary/80 text-foreground font-semibold py-3 px-8 rounded-xl transition-colors"
+              >
+                CONTINUE WITHOUT DEVICE
+              </button>
             )}
-          </button>
+          </>
         )}
       </main>
     </div>

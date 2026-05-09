@@ -1,5 +1,4 @@
 import {
-  ArrowLeft,
   Gauge,
   Heart,
   MapPin,
@@ -24,10 +23,12 @@ interface LiveSessionProps {
   heartRate?: number;
   speed?: number;
   distance?: number;
+  initialElapsedSeconds?: number;
+  initialIsPaused?: boolean;
+  onPauseChange?: (isPaused: boolean) => void;
   onHeartRateUpdate?: (bpm: number) => void;
   onRegisterHeartRateUpdate?: (callback: (bpm: number) => void) => void;
   onFinish: () => void;
-  onBack: () => void;
 }
 
 export function LiveSession({
@@ -35,13 +36,15 @@ export function LiveSession({
   heartRate: externalHeartRate,
   speed: externalSpeed,
   distance: externalDistance,
+  initialElapsedSeconds = 0,
+  initialIsPaused = false,
+  onPauseChange,
   onHeartRateUpdate,
   onRegisterHeartRateUpdate,
   onFinish,
-  onBack,
 }: LiveSessionProps) {
-  const [isPaused, setIsPaused] = useState(false);
-  const [elapsedSeconds, setElapsedSeconds] = useState(0);
+  const [isPaused, setIsPaused] = useState(initialIsPaused);
+  const [elapsedSeconds, setElapsedSeconds] = useState(initialElapsedSeconds);
   const [internalHeartRate, setInternalHeartRate] = useState(
     initialHeartRate || 142,
   );
@@ -112,13 +115,7 @@ export function LiveSession({
   return (
     <div className="min-h-screen bg-background flex flex-col">
       {/* Header */}
-      <header className="flex items-center gap-4 p-4 border-b border-border">
-        <button
-          onClick={onBack}
-          className="p-2 hover:bg-secondary rounded-lg transition-colors"
-        >
-          <ArrowLeft className="h-5 w-5 text-foreground" />
-        </button>
+      <header className="flex items-center justify-center p-4 border-b border-border">
         <h1 className="text-xl font-bold text-foreground tracking-wide">
           LIVE SESSION
         </h1>
@@ -192,7 +189,10 @@ export function LiveSession({
         {/* Control buttons */}
         <div className="grid grid-cols-2 gap-3 pt-4">
           <button
-            onClick={() => setIsPaused(!isPaused)}
+            onClick={() => {
+              setIsPaused(!isPaused);
+              onPauseChange?.(!isPaused);
+            }}
             className="flex items-center justify-center gap-2 bg-secondary hover:bg-secondary/80 text-foreground font-semibold py-4 rounded-xl transition-colors"
           >
             {isPaused ? (
