@@ -26,6 +26,7 @@ interface LiveSessionProps {
   initialElapsedSeconds?: number;
   initialIsPaused?: boolean;
   onPauseChange?: (isPaused: boolean) => void;
+  onElapsedChange?: (seconds: number) => void;
   onHeartRateUpdate?: (bpm: number) => void;
   onRegisterHeartRateUpdate?: (callback: (bpm: number) => void) => void;
   onFinish: () => void;
@@ -39,6 +40,7 @@ export function LiveSession({
   initialElapsedSeconds = 0,
   initialIsPaused = false,
   onPauseChange,
+  onElapsedChange,
   onHeartRateUpdate,
   onRegisterHeartRateUpdate,
   onFinish,
@@ -64,7 +66,11 @@ export function LiveSession({
     if (isPaused) return;
 
     const interval = setInterval(() => {
-      setElapsedSeconds((prev) => prev + 1);
+      setElapsedSeconds((prev) => {
+        const newValue = prev + 1;
+        onElapsedChange?.(newValue);
+        return newValue;
+      });
       if (!hasBluetooth) {
         setInternalHeartRate((prev: number) =>
           Math.min(
@@ -150,21 +156,21 @@ export function LiveSession({
 
           {/* Heart rate */}
           <div className="bg-secondary rounded-xl p-4 space-y-3">
-            <div className="flex items-center justify-center gap-2">
-              <Heart className="h-6 w-6 text-red-500 fill-red-500" />
-              <span className="text-3xl font-bold text-foreground">
-                {heartRate}
-              </span>
-            </div>
-            {/* <div className="h-2 bg-muted rounded-full overflow-hidden"> */}
-            {/*   <div */}
-            {/*     className={`h-full ${hrZone.color} transition-all duration-500`} */}
-            {/*     style={{ width: hrZone.width }} */}
-            {/*   /> */}
-            {/* </div> */}
-            {/* <p className="text-center text-orange-500 font-semibold text-sm tracking-wider"> */}
-            {/*   {hrZone.label} */}
-            {/* </p> */}
+            {heartRate > 0 ? (
+              <>
+                <div className="flex items-center justify-center gap-2">
+                  <Heart className="h-6 w-6 text-red-500 fill-red-500" />
+                  <span className="text-3xl font-bold text-foreground">
+                    {heartRate}
+                  </span>
+                </div>
+              </>
+            ) : (
+              <div className="text-center space-y-2">
+                <p className="text-destructive text-sm">Could not read heart rate</p>
+                <p className="text-2xl font-bold text-muted-foreground">--</p>
+              </div>
+            )}
           </div>
         </div>
 

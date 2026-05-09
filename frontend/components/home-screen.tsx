@@ -57,6 +57,7 @@ interface PersistedTrainingState {
   pausedDuration: number;
   bluetoothDeviceId: string | null;
   gpsDistance: number;
+  workoutId: number | null;
 }
 
 const saveTrainingState = (state: PersistedTrainingState) => {
@@ -132,6 +133,10 @@ export function HomeScreen({ userName = "User", onLogout, theme = "dark", onTogg
   const [restoredElapsedSeconds, setRestoredElapsedSeconds] = useState(0);
   const [bluetoothDeviceId, setBluetoothDeviceId] = useState<string | null>(null);
   const [isPaused, setIsPaused] = useState(false);
+  const isRestoredSession = useRef(false);
+  const [workoutId, setWorkoutId] = useState<number | null>(null);
+  const dataBufferRef = useRef<any[]>([]);
+  const elapsedSecondsRef = useRef(0);
 
   useEffect(() => {
     // Fetch workouts
@@ -184,9 +189,11 @@ export function HomeScreen({ userName = "User", onLogout, theme = "dark", onTogg
       setGpsDistance(savedState.gpsDistance);
       setBluetoothDeviceId(savedState.bluetoothDeviceId);
       setIsPaused(savedState.isPaused);
+      setWorkoutId(savedState.workoutId);
       
       // Auto-start training session
-      setIsTraining(true);
+      setIsConnectingBluetooth(true);
+      isRestoredSession.current = true;
       
       // Restore Bluetooth device ID for reconnection
       if (savedState.bluetoothDeviceId) {
@@ -268,9 +275,47 @@ export function HomeScreen({ userName = "User", onLogout, theme = "dark", onTogg
         pausedDuration: 0,
         bluetoothDeviceId: bluetoothDevice?.id || null,
         gpsDistance: 0,
+        workoutId: workoutId,
       });
     }
-  }, [isTraining]);
+  }, [isTraining, workoutId]);
+
+  // Save data to backend every 5 seconds (while training and not paused)
+  useEffect(() => {
+    if (!isTraining || isPaused || !workoutId) return;
+
+    const interval = setInterval(async () => {
+      const dataPoint = {
+        elapsed_seconds: elapsedSecondsRef.current,
+        distance_km: gpsDistance,
+        speed_kmh: gpsSpeed,
+        heart_rate: bluetoothHeartRate > 0 ? bluetoothHeartRate : null,
+        latitude: lastPositionRef.current?.lat || null,
+        longitude: lastPositionRef.current?.lng || null,
+      };
+
+      dataBufferRef.current.push(dataPoint);
+
+      if (dataBufferRef.current.length >= 1) {
+        try {
+          await fetch("/api/auth/workout-data/save/", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              workout_id: workoutId,
+              data_points: dataBufferRef.current,
+            }),
+            credentials: "include",
+          });
+          dataBufferRef.current = [];
+        } catch (err) {
+          console.error("Failed to save workout data:", err);
+        }
+      }
+    }, 5000);
+
+    return () => clearInterval(interval);
+  }, [isTraining, isPaused, workoutId, gpsDistance, gpsSpeed, bluetoothHeartRate]);
 
   // Persist GPS distance and device updates (preserve existing timestamp)
   useEffect(() => {
@@ -441,11 +486,12 @@ export function HomeScreen({ userName = "User", onLogout, theme = "dark", onTogg
     return (
       <LiveSession
         initialHeartRate={bluetoothHeartRate}
-        heartRate={bluetoothHeartRate > 0 ? bluetoothHeartRate : undefined}
+        heartRate={bluetoothHeartRate >= 0 ? bluetoothHeartRate : undefined}
         speed={gpsSpeed}
         distance={gpsDistance}
         initialElapsedSeconds={restoredElapsedSeconds}
         initialIsPaused={isPaused}
+        onElapsedChange={(seconds) => { elapsedSecondsRef.current = seconds; }}
         onPauseChange={(paused) => {
           setIsPaused(paused);
           const existing = loadTrainingState();
@@ -468,13 +514,47 @@ export function HomeScreen({ userName = "User", onLogout, theme = "dark", onTogg
           }
         }}
         onRegisterHeartRateUpdate={(fn) => { liveSessionHeartRateRef.current = fn; }}
-        onFinish={() => {
+        onFinish={async () => {
+          const currentWorkoutId = workoutId;
+
+          if (dataBufferRef.current.length > 0 && currentWorkoutId) {
+            try {
+              await fetch("/api/auth/workout-data/save/", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({
+                  workout_id: currentWorkoutId,
+                  data_points: dataBufferRef.current,
+                }),
+                credentials: "include",
+              });
+            } catch (err) {
+              console.error("Failed to save remaining data:", err);
+            }
+          }
+
+          if (currentWorkoutId) {
+            try {
+              await fetch("/api/auth/workout-data/finish/", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ workout_id: currentWorkoutId }),
+                credentials: "include",
+              });
+            } catch (err) {
+              console.error("Failed to finish workout:", err);
+            }
+          }
+
           clearTrainingState();
+          dataBufferRef.current = [];
+          elapsedSecondsRef.current = 0;
           setIsTraining(false);
           setBluetoothHeartRate(0);
           setRestoredElapsedSeconds(0);
           setGpsDistance(0);
           setIsPaused(false);
+          setWorkoutId(null);
         }}
       />
     );
@@ -500,7 +580,12 @@ export function HomeScreen({ userName = "User", onLogout, theme = "dark", onTogg
             liveSessionHeartRateRef.current(bpm);
           }
         }}
-        onBack={() => setIsConnectingBluetooth(false)}
+        onBack={() => {
+          setIsConnectingBluetooth(false);
+          if (isRestoredSession.current) {
+            setIsTraining(true);
+          }
+        }}
       />
     );
   }
@@ -592,8 +677,11 @@ export function HomeScreen({ userName = "User", onLogout, theme = "dark", onTogg
               : undefined
           }
           onStartTraining={
-            selectedTraining.type === "workout"
-              ? () => setIsConnectingBluetooth(true)
+            selectedTraining.type === "workout" && selectedTraining.id
+              ? () => {
+                  setWorkoutId(selectedTraining.id!);
+                  setIsConnectingBluetooth(true);
+                }
               : undefined
           }
           onEdit={() => handleEditWorkout(selectedDate, selectedTraining)}

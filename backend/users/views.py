@@ -10,7 +10,7 @@ from django.views.decorators.csrf import csrf_exempt
 from django.views.decorators.http import require_POST
 from google.genai import types
 
-from .models import UserProfile, WorkoutSession
+from .models import UserProfile, WorkoutSession, WorkoutDataPoint
 from .parsers import parse_gemini_response
 from .prompts import get_system_prompt
 from .services import (
@@ -110,6 +110,187 @@ def workouts(request):
     workouts_list = [format_workout_for_api(w) for w in workouts_qs]
 
     return JsonResponse({"workouts": workouts_list})
+
+
+@csrf_exempt
+@require_POST
+def save_workout_data(request):
+    if not request.user.is_authenticated:
+        return JsonResponse({"error": "Not authenticated"}, status=401)
+    
+    try:
+        data = json.loads(request.body)
+    except json.JSONDecodeError:
+        return JsonResponse({"error": "Invalid JSON"}, status=400)
+    
+    workout_id = data.get("workout_id")
+    data_points = data.get("data_points", [])
+    
+    if not workout_id:
+        return JsonResponse({"error": "workout_id required"}, status=400)
+    
+    try:
+        workout = WorkoutSession.objects.get(id=workout_id, user=request.user)
+    except WorkoutSession.DoesNotExist:
+        return JsonResponse({"error": "Workout not found"}, status=404)
+    
+    saved_count = 0
+    for point in data_points:
+        WorkoutDataPoint.objects.create(
+            user=request.user,
+            workout_session=workout,
+            elapsed_seconds=point.get("elapsed_seconds", 0),
+            distance_km=point.get("distance_km", 0),
+            speed_kmh=point.get("speed_kmh", 0),
+            heart_rate=point.get("heart_rate"),
+            latitude=point.get("latitude"),
+            longitude=point.get("longitude"),
+        )
+        saved_count += 1
+    
+    return JsonResponse({"saved": saved_count})
+
+
+@csrf_exempt
+@require_POST
+def finish_workout(request):
+    if not request.user.is_authenticated:
+        return JsonResponse({"error": "Not authenticated"}, status=401)
+    
+    try:
+        data = json.loads(request.body)
+    except json.JSONDecodeError:
+        return JsonResponse({"error": "Invalid JSON"}, status=400)
+    
+    workout_id = data.get("workout_id")
+    
+    if not workout_id:
+        return JsonResponse({"error": "workout_id required"}, status=400)
+    
+    try:
+        workout = WorkoutSession.objects.get(id=workout_id, user=request.user)
+    except WorkoutSession.DoesNotExist:
+        return JsonResponse({"error": "Workout not found"}, status=404)
+    
+    data_points = WorkoutDataPoint.objects.filter(workout_session=workout).order_by('elapsed_seconds')
+    
+    if not data_points.exists():
+        return JsonResponse({"error": "No data points found"}, status=400)
+    
+    total_duration = data_points.last().elapsed_seconds
+    total_distance = float(data_points.last().distance_km) if data_points.last().distance_km else 0
+    
+    heart_rates = [p.heart_rate for p in data_points if p.heart_rate]
+    avg_heart_rate = int(sum(heart_rates) / len(heart_rates)) if heart_rates else None
+    max_heart_rate = max(heart_rates) if heart_rates else None
+    
+    speeds = [float(p.speed_kmh) for p in data_points if p.speed_kmh]
+    avg_speed = sum(speeds) / len(speeds) if speeds else None
+    
+    workout.status = "completed"
+    workout.completed_at = date.today()
+    workout.total_duration_seconds = total_duration
+    workout.total_distance_km = total_distance
+    workout.avg_heart_rate = avg_heart_rate
+    workout.max_heart_rate = max_heart_rate
+    workout.avg_speed_kmh = avg_speed
+    
+    ai_summary = generate_ai_summary(data_points, total_duration, total_distance, avg_heart_rate, max_heart_rate, avg_speed)
+    workout.ai_summary = ai_summary
+    
+    workout.save()
+    
+    return JsonResponse({
+        "status": "completed",
+        "summary": {
+            "total_duration": format_duration(total_duration),
+            "total_distance": f"{total_distance:.2f} km",
+            "avg_heart_rate": avg_heart_rate,
+            "max_heart_rate": max_heart_rate,
+            "avg_speed": f"{avg_speed:.1f} km/h" if avg_speed else None,
+            "ai_summary": ai_summary,
+        }
+    })
+
+
+def generate_ai_summary(data_points, total_duration, total_distance, avg_heart_rate, max_heart_rate, avg_speed):
+    try:
+        prompt = f"""Based on this training session data, generate a brief motivating summary (2-3 sentences):
+        
+Duration: {format_duration(total_duration)}
+Distance: {total_distance:.2f} km
+Average Heart Rate: {avg_heart_rate} BPM if avg_heart_rate else "N/A"
+Max Heart Rate: {max_heart_rate} BPM if max_heart_rate else "N/A"
+Average Speed: {avg_speed:.1f} km/h if avg_speed else "N/A"
+
+Focus on:
+- Performance consistency
+- Any improvements or concerns
+- Encouragement for next session
+
+Keep it concise and motivating."""
+        
+        client = genai.Client(api_key=settings.GEMINI_API_KEY)
+        response = client.models.generate_content(
+            model=CHAT_MODEL,
+            contents=[prompt],
+            config=types.GenerateContentConfig(system_instruction="You are a supportive running coach giving brief feedback.")
+        )
+        
+        return response.text.strip() if response.text else "Great workout! Keep up the good work!"
+    except Exception as e:
+        print(f"AI summary generation error: {e}")
+        return "Great workout! Keep up the good work!"
+
+
+def format_duration(seconds):
+    mins, secs = divmod(seconds, 60)
+    hours, mins = divmod(mins, 60)
+    if hours > 0:
+        return f"{hours}:{mins:02d}:{secs:02d}"
+    return f"{mins}:{secs:02d}"
+
+
+@require_POST
+def get_workout_data(request, workout_id):
+    if not request.user.is_authenticated:
+        return JsonResponse({"error": "Not authenticated"}, status=401)
+    
+    try:
+        workout = WorkoutSession.objects.get(id=workout_id, user=request.user)
+    except WorkoutSession.DoesNotExist:
+        return JsonResponse({"error": "Workout not found"}, status=404)
+    
+    data_points = WorkoutDataPoint.objects.filter(workout_session=workout).order_by('elapsed_seconds')
+    
+    data = [
+        {
+            "elapsed_seconds": p.elapsed_seconds,
+            "distance_km": float(p.distance_km) if p.distance_km else None,
+            "speed_kmh": float(p.speed_kmh) if p.speed_kmh else None,
+            "heart_rate": p.heart_rate,
+            "latitude": float(p.latitude) if p.latitude else None,
+            "longitude": float(p.longitude) if p.longitude else None,
+            "timestamp": p.timestamp.isoformat(),
+        }
+        for p in data_points
+    ]
+    
+    return JsonResponse({
+        "workout": {
+            "id": workout.id,
+            "date": workout.date.isoformat(),
+            "type": workout.type,
+            "status": workout.status,
+            "ai_summary": workout.ai_summary,
+            "total_duration_seconds": workout.total_duration_seconds,
+            "total_distance_km": float(workout.total_distance_km) if workout.total_distance_km else None,
+            "avg_heart_rate": workout.avg_heart_rate,
+            "max_heart_rate": workout.max_heart_rate,
+            "avg_speed_kmh": float(workout.avg_speed_kmh) if workout.avg_speed_kmh else None,
+        },
+        "data_points": data,
+    })
 
 
 @csrf_exempt

@@ -62,12 +62,8 @@ export function BluetoothConnect({ onConnected, onHeartRateChange, onBack }: Blu
         }, 500);
       } catch (err: any) {
         setStatus("error");
-        setError("Could not read heart rate");
+        setError("Could not reconnect to previous device");
         setHasAutoReconnected(true);
-        
-        setTimeout(() => {
-          onConnected(null, 0, handleHeartRateUpdate);
-        }, 2000);
       }
     };
 
@@ -223,7 +219,7 @@ export function BluetoothConnect({ onConnected, onHeartRateChange, onBack }: Blu
                 </>
               )}
             </button>
-            {(status === "error" || error.includes("Could not read")) && (
+            {status === "error" && (
               <button
                 onClick={() => onConnected(null, 0, handleHeartRateUpdate)}
                 className="flex items-center gap-2 bg-secondary hover:bg-secondary/80 text-foreground font-semibold py-3 px-8 rounded-xl transition-colors"
