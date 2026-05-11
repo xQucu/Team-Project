@@ -36,6 +36,8 @@ cd backend
 python -m venv venv
 .\venv\Scripts\Activate.ps1
 pip install -r requirements.txt
+python -c "import django; print('Django ' + django.VERSION)"
+python manage.py migrate
 ```
 
 #### Linux/macOS (Bash)
@@ -45,26 +47,23 @@ cd backend
 python3 -m venv venv
 source venv/bin/activate
 pip install -r requirements.txt
+python -c "import django; print('Django ' + django.VERSION)"
+python manage.py migrate
 ```
 
 #### Create Environment File
 
-Create `backend/.env` with your API key:
+```bash
+cp env.example .env
+```
+
+Edit `.env` and add your Google Gemini API key:
 
 ```
 GEMINI_API_KEY=your_api_key_here
 ```
 
 > **Note**: Get your API key from [Google AI Studio](https://aistudio.google.com/app/apikey)
-
-#### Run Migrations
-
-```bash
-python manage.py migrate
-python manage.py runserver 3000
-```
-
-The backend will start at `http://localhost:3000`
 
 ---
 
