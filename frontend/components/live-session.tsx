@@ -1,3 +1,4 @@
+import { speakText } from "@/lib/speech";
 import {
   Gauge,
   Heart,
@@ -5,8 +6,11 @@ import {
   Pause,
   Play,
   Square,
+  Mic,
+  MicOff,
+  Volume2,
 } from "lucide-react";
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useState, useRef } from "react";
 
 const motivationalQuotes = [
   "You're doing amazing! Keep pushing!",
@@ -51,6 +55,12 @@ export function LiveSession({
     initialHeartRate || 142,
   );
   const [hasBluetooth, setHasBluetooth] = useState(initialHeartRate > 0);
+  const [isListening, setIsListening] = useState(false);
+  const [isSpeaking, setIsSpeaking] = useState(false);
+  const [chatMessages, setChatMessages] = useState<Array<{ text: string; isUser: boolean }>>([]);
+  const [inputText, setInputText] = useState("");
+  const recognitionRef = useRef<SpeechRecognition | null>(null);
+  const synthesisRef = useRef<SpeechSynthesis | null>(null);
 
   const heartRate =
     externalHeartRate !== undefined ? externalHeartRate : internalHeartRate;
@@ -60,6 +70,80 @@ export function LiveSession({
     () =>
       motivationalQuotes[Math.floor(Math.random() * motivationalQuotes.length)],
   );
+
+  // Initialize Speech Recognition
+  useEffect(() => {
+    if (typeof window !== "undefined" && "SpeechRecognition" in window) {
+      const SpeechRecognition = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
+      recognitionRef.current = new SpeechRecognition();
+      recognitionRef.current.continuous = true;
+      recognitionRef.current.interimResults = true;
+      recognitionRef.current.lang = "en-US";
+
+      recognitionRef.current.onresult = (event: any) => {
+        const transcript = Array.from(event.results)
+          .map((result: any) => result[0].transcript)
+          .join("");
+        setInputText(transcript);
+      };
+
+      recognitionRef.current.onerror = (event: any) => {
+        console.error("Speech recognition error", event.error);
+        setIsListening(false);
+      };
+    }
+
+    if (typeof window !== "undefined" && "speechSynthesis" in window) {
+      synthesisRef.current = window.speechSynthesis;
+    }
+  }, []);
+
+  // Start/Stop Listening
+  const toggleListening = useCallback(() => {
+    if (!recognitionRef.current) return;
+
+    if (isListening) {
+      recognitionRef.current.stop();
+      setIsListening(false);
+    } else {
+      recognitionRef.current.start();
+      setIsListening(true);
+    }
+  }, [isListening]);
+
+  // Send message to /chat endpoint
+  const [history, setHistory] = useState<{sender: "user" | "assistant"; content: string}[]>([]);
+
+  const sendMessage = useCallback(async () => {
+    if (!inputText.trim()) return;
+
+    
+    setInputText("");
+
+    try {
+      const response = await fetch("/api/auth/chat/", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ 
+          message: inputText,
+          history: history
+        }),
+        credentials: "include",
+      });
+      const data = await response.json();
+    
+      console.log(data.reply);
+      setHistory(prev => [
+        ...prev,
+        {sender: 'user', content: inputText},
+        {sender: 'assistant', content: data.reply}
+      ])
+      // Speak the response
+      speakText(data.reply);
+    } catch (error) {
+      console.error("Error sending message:", error);
+    }
+  }, [inputText]);
 
   // Timer effect
   useEffect(() => {
@@ -138,6 +222,32 @@ export function LiveSession({
           />
           <div className="bg-secondary rounded-xl rounded-tl-none px-4 py-3 flex-1">
             <p className="text-foreground text-sm">{quote}</p>
+          </div>
+        </div>
+
+        {/* Chat UI */}
+        <div className="bg-card rounded-xl p-4 space-y-4">
+         
+          <div className="flex gap-2">
+            <input
+              type="text"
+              value={inputText}
+              onChange={(e) => setInputText(e.target.value)}
+              placeholder="Type or speak..."
+              className="flex-1 p-2 rounded-lg bg-secondary text-foreground"
+            />
+            <button
+              onClick={toggleListening}
+              className={`p-2 rounded-lg ${isListening ? "bg-red-500" : "bg-primary"}`}
+            >
+              {isListening ? <MicOff className="h-5 w-5" /> : <Mic className="h-5 w-5" />}
+            </button>
+            <button
+              onClick={sendMessage}
+              className="p-2 rounded-lg bg-primary"
+            >
+              <Volume2 className="h-5 w-5" />
+            </button>
           </div>
         </div>
 
