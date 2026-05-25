@@ -64,6 +64,7 @@ export function LiveSession({
 
   const heartRate =
     externalHeartRate !== undefined ? externalHeartRate : internalHeartRate;
+  //const heartRate = 150
   const distance = externalDistance ?? 0;
   const speed = externalSpeed ?? 0;
   const [quote] = useState(
@@ -117,21 +118,21 @@ export function LiveSession({
   const sendMessage = useCallback(async () => {
     if (!inputText.trim()) return;
 
-    
+
     setInputText("");
 
     try {
       const response = await fetch("/api/auth/chat/", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ 
+        body: JSON.stringify({
           message: inputText,
           history: history
         }),
         credentials: "include",
       });
       const data = await response.json();
-    
+
       console.log(data.reply);
       setHistory(prev => [
         ...prev,
@@ -227,7 +228,7 @@ export function LiveSession({
 
         {/* Chat UI */}
         <div className="bg-card rounded-xl p-4 space-y-4">
-         
+
           <div className="flex gap-2">
             <input
               type="text"
@@ -267,20 +268,43 @@ export function LiveSession({
           {/* Heart rate */}
           <div className="bg-secondary rounded-xl p-4 space-y-3">
             {heartRate > 0 ? (
-              <>
-                <div className="flex items-center justify-center gap-2">
-                  <Heart className="h-6 w-6 text-red-500 fill-red-500" />
-                  <span className="text-3xl font-bold text-foreground">
-                    {heartRate}
-                  </span>
-                </div>
-              </>
+              <div className="flex items-center justify-center gap-2">
+                <Heart className="h-6 w-6 text-red-500 fill-red-500" />
+                <span className="text-3xl font-bold text-foreground">
+                  {heartRate}
+                </span>
+              </div>
             ) : (
               <div className="text-center space-y-2">
                 <p className="text-destructive text-sm">Could not read heart rate</p>
                 <p className="text-2xl font-bold text-muted-foreground">--</p>
               </div>
             )}
+            <div className="flex items-center justify-center gap-1">
+              {hrZone.zone > 1 ? (
+                <img
+                  src={`/images/zone-${hrZone.zone - 1}.png`}
+                  alt={`Zone ${hrZone.zone - 1}`}
+                  className="w-1/4 h-auto object-contain opacity-70 scale-90 origin-right"
+                />
+              ) : (
+                <div className="w-1/4 flex-shrink-0" />
+              )}
+              <img
+                src={`/images/zone-${hrZone.zone}.png`}
+                alt={hrZone.label}
+                className="w-1/2 h-auto object-contain"
+              />
+              {hrZone.zone < 5 ? (
+                <img
+                  src={`/images/zone-${hrZone.zone + 1}.png`}
+                  alt={`Zone ${hrZone.zone + 1}`}
+                  className="w-1/4 h-auto object-contain opacity-70 scale-90 origin-left"
+                />
+              ) : (
+                <div className="w-1/4 flex-shrink-0" />
+              )}
+            </div>
           </div>
         </div>
 
