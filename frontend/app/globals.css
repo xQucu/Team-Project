@@ -115,13 +115,21 @@
 }
 
 /* Custom scrollbar for chat */
+.chat-scrollbar {
+  scrollbar-width: thin;
+  scrollbar-color: var(--muted) transparent;
+}
 .chat-scrollbar::-webkit-scrollbar {
-  width: 4px;
+  width: 8px;
+  height: 8px;
 }
 .chat-scrollbar::-webkit-scrollbar-track {
   background: transparent;
 }
 .chat-scrollbar::-webkit-scrollbar-thumb {
   background: var(--muted);
-  border-radius: 2px;
+  border-radius: 9999px;
+}
+.chat-scrollbar::-webkit-scrollbar-corner {
+  background: transparent;
 }

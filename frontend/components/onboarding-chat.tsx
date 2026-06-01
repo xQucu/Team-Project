@@ -236,14 +236,14 @@ export function OnboardingChat({ onComplete, onBack }: OnboardingChatProps) {
         </div>
       )}
 
-      <div className="flex-1 flex flex-col overflow-hidden relative">
+      <div className="flex-1 flex flex-col overflow-hidden relative min-h-0">
         <ChatInterface
           messages={messages}
           onSendMessage={handleSendMessage}
           placeholder={pickerConfig ? "Use the picker below..." : "Type your answer..."}
           mascotImage="/images/onboarding-mascot.webp"
           disabled={isTyping || isComplete || !!pickerConfig}
-          className="flex-1 rounded-none"
+          className="h-full flex-1 min-h-0 rounded-none"
           showTypingIndicator={isTyping}
         />
         
