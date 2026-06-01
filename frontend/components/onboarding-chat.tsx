@@ -31,6 +31,7 @@ export function OnboardingChat({ onComplete, onBack }: OnboardingChatProps) {
   const [isTyping, setIsTyping] = useState(false);
   const [isComplete, setIsComplete] = useState(false);
   const [retryCount, setRetryCount] = useState(0);
+  const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [pickerConfig, setPickerConfig] = useState<PickerConfig | null>(null);
 
   const detectPicker = (text: string): PickerConfig | null => {
@@ -38,40 +39,80 @@ export function OnboardingChat({ onComplete, onBack }: OnboardingChatProps) {
     if (lowerText.includes("how old") || lowerText.includes("your age")) {
       return { type: "age", min: 14, max: 99, unit: "", default: 25, label: "Select your age" };
     }
-    if (lowerText.includes("weight") || lowerText.includes("weigh")) {
+
+    const isWeightQuestion = (
+      lowerText.includes("select your weight") ||
+      lowerText.includes("what do you weigh") ||
+      lowerText.includes("your weight") ||
+      lowerText.includes("weigh in kg")
+    ) && !lowerText.includes("lose weight") && !lowerText.includes("weight loss");
+    if (isWeightQuestion) {
       return { type: "weight", min: 40, max: 200, unit: " kg", default: 75, label: "Select your weight" };
     }
-    if (lowerText.includes("height") || lowerText.includes("tall")) {
+
+    const isHeightQuestion = (
+      lowerText.includes("select your height") ||
+      lowerText.includes("how tall are you") ||
+      lowerText.includes("your height")
+    );
+    if (isHeightQuestion) {
       return { type: "height", min: 120, max: 230, unit: " cm", default: 175, label: "Select your height" };
     }
-    if (lowerText.includes("days per week") || (lowerText.includes("how many days") && lowerText.includes("train"))) {
+
+    const isDaysQuestion = (
+      lowerText.includes("days per week") ||
+      (lowerText.includes("how many days") && lowerText.includes("train")) ||
+      lowerText.includes("training days")
+    );
+    if (isDaysQuestion) {
       return { type: "days", min: 1, max: 7, unit: " days", default: 3, label: "Training days per week" };
     }
+
     return null;
   };
 
   const sendChatRequest = async (message: string, hist: ChatHistoryItem[], attempt = 0): Promise<any> => {
-    const res = await fetch("/api/auth/onboarding/chat/", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ message, history: hist }),
-      credentials: "include",
-    });
+    setErrorMessage(null);
 
-    const data = await res.json();
+    let res: Response;
+    try {
+      res = await fetch("/api/auth/onboarding/chat/", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ message, history: hist }),
+        credentials: "include",
+      });
+    } catch (fetchError) {
+      const error = fetchError instanceof Error ? fetchError.message : "Network request failed";
+      setErrorMessage(error);
+      throw new Error(error);
+    }
+
+    let data: any;
+    try {
+      data = await res.json();
+    } catch {
+      data = { error: `HTTP ${res.status} ${res.statusText}` };
+    }
 
     if ((res.status === 429 || res.status === 503) && attempt < MAX_RETRIES) {
       setRetryCount(attempt + 1);
-      await new Promise(resolve => setTimeout(resolve, RETRY_DELAY_MS));
+      const retryDelay = data.retry_after
+        ? data.retry_after * 1000
+        : RETRY_DELAY_MS * (attempt + 1);
+      await new Promise((resolve) => setTimeout(resolve, retryDelay));
       return sendChatRequest(message, hist, attempt + 1);
     }
 
     if (res.ok) {
       setRetryCount(0);
+      setErrorMessage(null);
       return data;
     }
 
-    throw new Error(data.error || "Request failed");
+    const error = data?.error || `Request failed (${res.status})`;
+    setErrorMessage(error);
+    throw new Error(error);
   };
 
   const handleSendMessage = async (content: string) => {
@@ -127,8 +168,11 @@ export function OnboardingChat({ onComplete, onBack }: OnboardingChatProps) {
         }, 1500);
       }
     } catch (e) {
+      const message = e instanceof Error ? e.message : "Unexpected error";
+      setErrorMessage(message);
       console.error(e);
     }
+
     setIsTyping(false);
   };
 
@@ -147,6 +191,8 @@ export function OnboardingChat({ onComplete, onBack }: OnboardingChatProps) {
           setPickerConfig(detectPicker(data.reply));
         }
       } catch (e) {
+        const message = e instanceof Error ? e.message : "Unexpected error";
+        setErrorMessage(message);
         console.error(e);
       }
       setIsTyping(false);
@@ -184,6 +230,12 @@ export function OnboardingChat({ onComplete, onBack }: OnboardingChatProps) {
         </div>
       </header>
 
+      {errorMessage && (
+        <div className="mx-4 mt-4 rounded-xl border border-red-300 bg-red-50 px-4 py-3 text-sm text-red-700">
+          <strong>Onboarding error:</strong> {errorMessage}
+        </div>
+      )}
+
       <div className="flex-1 flex flex-col overflow-hidden relative">
         <ChatInterface
           messages={messages}
@@ -212,14 +264,6 @@ export function OnboardingChat({ onComplete, onBack }: OnboardingChatProps) {
             }}
           />
         )}
-      </div>
-
-      <div className="p-4 border-t border-border">
-        <div className="flex items-center justify-between mb-2">
-          <span className="text-xs text-muted-foreground">
-            {isComplete ? "Complete!" : "Getting to know you"}
-          </span>
-        </div>
       </div>
     </div>
   );

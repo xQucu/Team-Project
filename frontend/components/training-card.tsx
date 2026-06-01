@@ -141,7 +141,7 @@ export function TrainingCard({
         <div className="flex-1">
           <p className="text-foreground font-medium">{training.title}</p>
           {training.description && (
-            <div className="text-xs text-muted-foreground mt-1 space-y-1">
+            <div className="text-xs text-muted-foreground mt-1 space-y-1 max-h-24 overflow-y-auto">
               <ReactMarkdown
                 components={{
                   p: ({ node, ...props }) => <p className="mb-1" {...props} />,

@@ -22,7 +22,7 @@ from .services import (
     save_workout_sessions,
 )
 
-CHAT_MODEL = "gemini-3.1-flash-lite-preview"
+CHAT_MODEL = "gemini-3.1-flash-lite"
 
 
 @csrf_exempt
