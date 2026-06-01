@@ -138,7 +138,7 @@ export function WheelPicker({
         </p>
       </div>
 
-      <style jsx>{`
+      <style>{`
         .no-scrollbar::-webkit-scrollbar {
           display: none;
         }

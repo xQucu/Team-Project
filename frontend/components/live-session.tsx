@@ -22,7 +22,147 @@ const motivationalQuotes = [
   "Push through - greatness awaits!",
 ];
 
+interface WorkoutSection {
+  text: string;
+  time?: string;
+  seconds?: number;
+}
+
+const parseSectionTime = (section: string): number | undefined => {
+  const lower = section.toLowerCase();
+  const match = lower.match(/(\d+)\s*(min|minute|minutes|sec|second|seconds)/i);
+  if (!match) return undefined;
+
+  const value = Number(match[1]);
+  const unit = match[2].toLowerCase();
+  if (unit.startsWith("min")) return value * 60;
+  return value;
+};
+
+const splitWorkoutDescription = (description: string) => {
+  const normalized = description.replace(/\r\n/g, "\n").trim();
+  if (!normalized) return [];
+
+  const byLines = normalized
+    .split(/\n+|;\s*/)
+    .map((chunk) => chunk.trim())
+    .filter(Boolean);
+
+  if (byLines.length > 1) {
+    return byLines;
+  }
+
+  const lower = normalized.toLowerCase();
+  if (lower.includes(" then ")) {
+    return normalized
+      .split(/\bthen\b/i)
+      .map((chunk) => chunk.trim())
+      .filter(Boolean);
+  }
+
+  if (lower.includes(" after ")) {
+    return normalized
+      .split(/\bafter\b/i)
+      .map((chunk) => chunk.trim())
+      .filter(Boolean);
+  }
+
+  const sentences = normalized
+    .split(/(?<=[.!?])\s+/)
+    .map((chunk) => chunk.trim())
+    .filter(Boolean);
+
+  return sentences.length > 1 ? sentences : [normalized];
+};
+
+const buildWorkoutSpeech = (sections: WorkoutSection[]) => {
+  if (sections.length === 0) return "";
+  if (sections.length === 1) {
+    const durationText = sections[0].time ? ` for ${sections[0].time}` : "";
+    return `${sections[0].text}${durationText}`;
+  }
+
+  return sections
+    .map((section, index) => {
+      const durationText = section.time ? ` for ${section.time}` : " for a short while";
+      if (index === 0) return `Start with ${section.text}${durationText}`;
+      if (index === sections.length - 1) return `Finally, ${section.text}${durationText}`;
+      return `After ${sections[index - 1]?.time ?? "a few minutes"}, switch to ${section.text}${durationText}`;
+    })
+    .join(". ");
+};
+
+const buildWorkoutSections = async (description: string): Promise<WorkoutSection[]> => {
+  if (!description.trim()) return [];
+
+  const prompt = `Parse this workout description into distinct exercise phases. For each phase, extract the exercise name/activity and duration.
+
+Workout Description: "${description}"
+
+Return a JSON array with objects having:
+- "name": the exercise name or activity (string)
+- "duration": the time duration like "5 min", "30 sec", or "10 minutes" (string)
+
+If no duration is specified for a phase, omit the duration field.
+Return ONLY valid JSON array, no other text. Example: [{"name": "warm-up jog", "duration": "5 min"}, {"name": "sprints", "duration": "10 min"}]`;
+
+  try {
+    const response = await fetch("/api/auth/chat/", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ 
+        message: prompt,
+        history: []
+      }),
+      credentials: "include",
+    });
+
+    if (!response.ok) {
+      console.error("Failed to fetch workout sections from API");
+      return [];
+    }
+
+    const data = await response.json();
+    let jsonStr = data.reply?.trim() || "";
+    
+    // Extract JSON if it's wrapped in markdown code blocks
+    const jsonMatch = jsonStr.match(/```(?:json)?\s*([\s\S]*?)\s*```/);
+    if (jsonMatch) {
+      jsonStr = jsonMatch[1];
+    }
+
+    const parsed = JSON.parse(jsonStr);
+    if (!Array.isArray(parsed)) return [];
+
+    return parsed.map((item: any) => {
+      const seconds = parseSectionTime(item.duration || "");
+      const timeStr = seconds 
+        ? `${Math.floor(seconds / 60) > 0 ? `${Math.floor(seconds / 60)} min` : `${seconds} sec`}`
+        : undefined;
+
+      return {
+        text: item.name || "",
+        time: timeStr,
+        seconds,
+      };
+    }).filter((s: WorkoutSection) => s.text);
+  } catch (error) {
+    console.error("Error parsing workout sections with AI:", error);
+    return [];
+  }
+};
+
+
 interface LiveSessionProps {
+  workoutId?: number;
+  training?: {
+    id?: number;
+    date?: string;
+    type: "workout" | "rest" | "completed" | "none";
+    title?: string;
+    description?: string;
+    duration?: string;
+  };
   initialHeartRate?: number;
   heartRate?: number;
   speed?: number;
@@ -48,6 +188,8 @@ export function LiveSession({
   onHeartRateUpdate,
   onRegisterHeartRateUpdate,
   onFinish,
+  workoutId: propWorkoutId,
+  training: propTraining,
 }: LiveSessionProps) {
   const [isPaused, setIsPaused] = useState(initialIsPaused);
   const [elapsedSeconds, setElapsedSeconds] = useState(initialElapsedSeconds);
@@ -57,10 +199,15 @@ export function LiveSession({
   const [hasBluetooth, setHasBluetooth] = useState(initialHeartRate > 0);
   const [isListening, setIsListening] = useState(false);
   const [isSpeaking, setIsSpeaking] = useState(false);
+  const [workoutSections, setWorkoutSections] = useState<WorkoutSection[]>([]);
+  const [currentSectionIndex, setCurrentSectionIndex] = useState(0);
   const [chatMessages, setChatMessages] = useState<Array<{ text: string; isUser: boolean }>>([]);
   const [inputText, setInputText] = useState("");
-  const recognitionRef = useRef<SpeechRecognition | null>(null);
-  const synthesisRef = useRef<SpeechSynthesis | null>(null);
+  const recognitionRef = useRef<any>(null);
+  const synthesisRef = useRef<any>(null);
+  const sectionEndTimesRef = useRef<number[]>([]);
+  const nextSectionAnnouncedRef = useRef<number>(1);
+  const trainingCompleteRef = useRef<boolean>(false);
 
   const heartRate =
     externalHeartRate !== undefined ? externalHeartRate : internalHeartRate;
@@ -97,6 +244,41 @@ export function LiveSession({
       synthesisRef.current = window.speechSynthesis;
     }
   }, []);
+
+  // On mount: fetch workout plan from persisted training state and speak it
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+
+    const initializeWorkout = async () => {
+      try {
+        console.log("Live session mounted with props:", { propWorkoutId, propTraining });
+        // If parent provided `training`, use it (construction similar to home-screen)
+        if (propTraining) {
+          const sections = await buildWorkoutSections(propTraining.description || propTraining.title || "");
+          // persist sections to state so other effects can use them
+          setWorkoutSections(sections);
+          console.log("Live session workoutSections initialized:", sections);
+
+          const textToSpeak = sections.length
+          ? `Today's workout: ${buildWorkoutSpeech(sections)}`
+          : "You have a workout scheduled for today.";
+          console.log("Speaking workout plan:", textToSpeak);
+          setIsSpeaking(true);
+          speakText(
+            textToSpeak,
+            () => setIsSpeaking(true),
+            () => setIsSpeaking(false),
+            (err) => {},
+          );
+          return;
+        }
+      } catch (error) {
+        console.error("Error initializing live session:", error);
+      }
+    };
+
+    initializeWorkout();
+  }, [propTraining]);
 
   // Start/Stop Listening
   const toggleListening = useCallback(() => {
@@ -166,7 +348,63 @@ export function LiveSession({
     }, 1000);
 
     return () => clearInterval(interval);
-  }, [isPaused, hasBluetooth]);
+  }, [isPaused, hasBluetooth, workoutSections, onElapsedChange]);
+
+  // Compute cumulative end times for sections (seconds)
+  useEffect(() => {
+    if (workoutSections.length === 0) {
+      sectionEndTimesRef.current = [];
+      trainingCompleteRef.current = false;
+      return;
+    }
+
+    const endTimes: number[] = [];
+    let acc = 0;
+    for (const s of workoutSections) {
+      if (s.seconds === undefined) {
+        // If a section has no defined seconds, mark remaining as infinite
+        endTimes.push(Number.POSITIVE_INFINITY);
+        break;
+      }
+      acc += s.seconds;
+      endTimes.push(acc);
+    }
+    sectionEndTimesRef.current = endTimes;
+    trainingCompleteRef.current = false;
+  }, [workoutSections]);
+
+  // Update current section when elapsedSeconds crosses boundaries and announce change
+  useEffect(() => {
+    const endTimes = sectionEndTimesRef.current;
+    if (!endTimes || endTimes.length === 0) return;
+
+    let idx = endTimes.findIndex((t) => elapsedSeconds < t);
+    if (idx === -1) idx = workoutSections.length - 1;
+
+    if (idx !== currentSectionIndex) {
+      setCurrentSectionIndex(idx);
+      const section = workoutSections[idx];
+      try {
+        const announcement = `Now: ${section.text}`;
+        console.log("Section changed ->", idx, section.text);
+        // speak the section name
+        speakText(announcement);
+      } catch (err) {
+        console.error("Error announcing section change", err);
+      }
+    }
+    // If we've passed the last defined end time, announce completion once
+    const lastEnd = endTimes[endTimes.length - 1];
+    if (Number.isFinite(lastEnd) && elapsedSeconds >= lastEnd && !trainingCompleteRef.current) {
+      trainingCompleteRef.current = true;
+      try {
+        console.log("Training complete");
+        speakText("Training complete. Great job!");
+      } catch (err) {
+        console.error("Error announcing training completion", err);
+      }
+    }
+  }, [elapsedSeconds, workoutSections, currentSectionIndex]);
 
   // Sync Bluetooth heart rate updates
   useEffect(() => {
@@ -224,6 +462,41 @@ export function LiveSession({
             <p className="text-foreground text-sm">{quote}</p>
           </div>
         </div>
+
+        {workoutSections.length > 0 && (
+          <div className="bg-card rounded-xl p-4 space-y-3">
+            <div>
+              <p className="text-xs uppercase tracking-[0.24em] text-muted-foreground">
+                Current phase
+              </p>
+              <h2 className="text-lg font-semibold text-foreground">
+                {currentSectionIndex + 1} of {workoutSections.length}
+              </h2>
+            </div>
+            <div className="space-y-3 text-sm text-foreground">
+              {(() => {
+                const section = workoutSections[currentSectionIndex];
+                const isLast = currentSectionIndex === workoutSections.length - 1;
+                const durationText = section.time ? ` for ${section.time}` : " for a short while";
+                const transitionText = isLast
+                  ? section.time
+                    ? `Finish strong for ${section.time}.`
+                    : "Finish strong."
+                  : `After this, switch to the next exercise.`;
+
+                return (
+                  <div className="bg-primary/5 rounded-xl p-3 space-y-1">
+                    <div className="font-semibold">
+                      {section.text}
+                      {durationText}
+                    </div>
+                    <p className="text-xs text-muted-foreground">{transitionText}</p>
+                  </div>
+                );
+              })()}
+            </div>
+          </div>
+        )}
 
         {/* Chat UI */}
         <div className="bg-card rounded-xl p-4 space-y-4">

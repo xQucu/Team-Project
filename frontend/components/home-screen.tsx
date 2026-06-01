@@ -485,6 +485,8 @@ export function HomeScreen({ userName = "User", onLogout, theme = "dark", onTogg
   if (isTraining) {
     return (
       <LiveSession
+        workoutId={workoutId ?? undefined}
+        training={selectedTraining}
         initialHeartRate={bluetoothHeartRate}
         heartRate={bluetoothHeartRate >= 0 ? bluetoothHeartRate : undefined}
         speed={gpsSpeed}
@@ -642,7 +644,7 @@ export function HomeScreen({ userName = "User", onLogout, theme = "dark", onTogg
   }
 
   return (
-    <div className="min-h-screen bg-background flex flex-col">
+    <div className="h-screen bg-background flex flex-col">
       {/* Header */}
       <header className="flex items-center justify-between p-4 border-b border-border shrink-0">
         <h1 className="text-2xl font-bold text-foreground">
@@ -657,7 +659,7 @@ export function HomeScreen({ userName = "User", onLogout, theme = "dark", onTogg
       </header>
 
       {/* Main content */}
-      <main className="flex-1 p-4 space-y-4">
+      <main className="flex-1 p-4 space-y-4 overflow-y-auto">
         {/* Removed overflow-y-auto */}
         {/* Two-week calendar */}
         <TwoWeekCalendar
@@ -685,14 +687,7 @@ export function HomeScreen({ userName = "User", onLogout, theme = "dark", onTogg
               : undefined
           }
           onEdit={() => handleEditWorkout(selectedDate, selectedTraining)}
-        />
-
-        {/* Trainer section header */}
-        <div className="pt-2">
-          <h2 className="text-sm font-semibold text-foreground tracking-wide">
-            TR<span className="text-primary">AI</span>NER
-          </h2>
-        </div>
+        />  
 
         {/* Chat interface */}
         <ChatInterface
