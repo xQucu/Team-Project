@@ -205,6 +205,7 @@ export function LiveSession({
   const [inputText, setInputText] = useState("");
   const recognitionRef = useRef<any>(null);
   const synthesisRef = useRef<any>(null);
+  const sendMessageRef = useRef<() => Promise<void> | void>(() => {});
   const sectionEndTimesRef = useRef<number[]>([]);
   const nextSectionAnnouncedRef = useRef<number>(1);
   const trainingCompleteRef = useRef<boolean>(false);
@@ -238,6 +239,19 @@ export function LiveSession({
       recognitionRef.current.onerror = (event: any) => {
         console.error("Speech recognition error", event.error);
         setIsListening(false);
+      };
+      
+      recognitionRef.current.onend = () => {
+        setIsListening(false);
+        if (wasListeningRef.current) {
+          wasListeningRef.current = false;
+          // call latest sendMessage
+          try {
+            sendMessageRef.current();
+          } catch (err) {
+            console.error("Error calling sendMessage on recognition end", err);
+          }
+        }
       };
     }
 
@@ -282,17 +296,29 @@ export function LiveSession({
   }, [propTraining]);
 
   // Start/Stop Listening
-  const toggleListening = useCallback(() => {
-    if (!recognitionRef.current) return;
+  const wasListeningRef = useRef(false);
 
-    if (isListening) {
-      recognitionRef.current.stop();
-      setIsListening(false);
-    } else {
+  const startListening = useCallback(() => {
+    if (!recognitionRef.current) return;
+    try {
+      wasListeningRef.current = true;
       recognitionRef.current.start();
       setIsListening(true);
+    } catch (err) {
+      console.warn("startListening failed", err);
     }
-  }, [isListening]);
+  }, []);
+
+  const stopListening = useCallback(() => {
+    if (!recognitionRef.current) return;
+    try {
+      recognitionRef.current.stop();
+    } catch (err) {
+      console.warn("stopListening failed", err);
+      setIsListening(false);
+      wasListeningRef.current = false;
+    }
+  }, []);
 
   // Send message to /chat endpoint
   const [history, setHistory] = useState<{sender: "user" | "assistant"; content: string}[]>([]);
@@ -303,12 +329,14 @@ export function LiveSession({
 
     setInputText("");
 
+    const promptText = inputText + ". remove any markdown formatting from your response and reply with plain text only. Be concise."; 
+
     try {
       const response = await fetch("/api/auth/chat/", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          message: inputText,
+          message: promptText,
           history: history
         }),
         credentials: "include",
@@ -327,6 +355,11 @@ export function LiveSession({
       console.error("Error sending message:", error);
     }
   }, [inputText]);
+
+  // keep a ref to the latest sendMessage so speech recognition handlers can call it
+  useEffect(() => {
+    sendMessageRef.current = sendMessage;
+  }, [sendMessage]);
 
   // Timer effect
   useEffect(() => {
@@ -442,16 +475,9 @@ export function LiveSession({
   const hrZone = getHeartRateZone(heartRate);
 
   return (
-    <div className="min-h-screen bg-background flex flex-col">
-      {/* Header */}
-      <header className="flex items-center justify-center p-4 border-b border-border">
-        <h1 className="text-xl font-bold text-foreground tracking-wide">
-          LIVE SESSION
-        </h1>
-      </header>
-
+    <div className="h-screen bg-background flex flex-col">
       {/* Main content */}
-      <main className="flex-1 p-4 space-y-4">
+      <main className="flex-1 p-4 space-y-4 overflow-y-auto">
         {/* Motivational quote with mascot */}
         <div className="bg-card rounded-xl p-4 flex items-center gap-3">
           <img
@@ -498,32 +524,6 @@ export function LiveSession({
             </div>
           </div>
         )}
-
-        {/* Chat UI */}
-        <div className="bg-card rounded-xl p-4 space-y-4">
-
-          <div className="flex gap-2">
-            <input
-              type="text"
-              value={inputText}
-              onChange={(e) => setInputText(e.target.value)}
-              placeholder="Type or speak..."
-              className="flex-1 p-2 rounded-lg bg-secondary text-foreground"
-            />
-            <button
-              onClick={toggleListening}
-              className={`p-2 rounded-lg ${isListening ? "bg-red-500" : "bg-primary"}`}
-            >
-              {isListening ? <MicOff className="h-5 w-5" /> : <Mic className="h-5 w-5" />}
-            </button>
-            <button
-              onClick={sendMessage}
-              className="p-2 rounded-lg bg-primary"
-            >
-              <Volume2 className="h-5 w-5" />
-            </button>
-          </div>
-        </div>
 
         {/* Stats card */}
         <div className="bg-card rounded-xl p-6 space-y-6">
@@ -598,9 +598,11 @@ export function LiveSession({
             <p className="text-xs text-muted-foreground uppercase">KM/H</p>
           </div>
         </div>
+      </main>
 
-        {/* Control buttons */}
-        <div className="grid grid-cols-2 gap-3 pt-4">
+      {/* Control buttons */}
+      <div className="p-4">
+        <div className="grid grid-cols-[1fr_auto_1fr] items-center gap-3">
           <button
             onClick={() => {
               setIsPaused(!isPaused);
@@ -620,6 +622,46 @@ export function LiveSession({
               </>
             )}
           </button>
+
+          <button
+            onPointerDown={(e) => {
+              e.preventDefault();
+              (e.currentTarget as Element).setPointerCapture?.(e.pointerId);
+              startListening();
+            }}
+            onPointerUp={(e) => {
+              e.preventDefault();
+              try { (e.currentTarget as Element).releasePointerCapture?.(e.pointerId); } catch {}
+              stopListening();
+            }}
+            onPointerCancel={() => stopListening()}
+            onPointerLeave={() => { if (isListening) stopListening(); }}
+            onContextMenu={(e) => e.preventDefault()}
+            onTouchStart={(e) => e.preventDefault()}
+            onTouchEnd={(e) => e.preventDefault()}
+            onKeyDown={(e) => {
+              if (e.key === " " || e.key === "Enter") {
+                e.preventDefault();
+                startListening();
+              }
+            }}
+            onKeyUp={(e) => {
+              if (e.key === " " || e.key === "Enter") {
+                e.preventDefault();
+                stopListening();
+              }
+            }}
+            className={`w-16 h-16 rounded-full flex items-center justify-center shadow-lg transition-all transform select-none ${
+              isListening 
+                ? "bg-red-500 scale-110 shadow-red-500/50" 
+                : "bg-primary hover:bg-primary/90 hover:scale-105"
+            }`}
+            title="Hold to listen"
+            aria-pressed={isListening}
+          >
+            {isListening ? <MicOff className="h-7 w-7 text-white" /> : <Mic className="h-7 w-7 text-white" />}
+          </button>
+
           <button
             onClick={onFinish}
             className="flex items-center justify-center gap-2 bg-destructive/20 hover:bg-destructive/30 text-destructive font-semibold py-4 rounded-xl transition-colors"
@@ -628,7 +670,7 @@ export function LiveSession({
             FINISH
           </button>
         </div>
-      </main>
+      </div>
     </div>
   );
 }

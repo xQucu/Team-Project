@@ -7,7 +7,7 @@ import { TrainingCard } from "@/components/training-card";
 import { TwoWeekCalendar } from "@/components/two-week-calendar";
 import { BluetoothConnect } from "@/components/bluetooth-connect";
 import { ArrowLeft, LogOut, Menu, Settings, Sun, Moon, User, X } from "lucide-react";
-import { useEffect, useMemo, useState, useRef } from "react";
+import { Dispatch, SetStateAction, useEffect, useMemo, useState, useRef } from "react";
 
 interface ProfileData {
   name: string;
@@ -90,6 +90,25 @@ const clearTrainingState = () => {
   localStorage.removeItem(TRAINING_STORAGE_KEY);
 };
 
+const loadWorkouts = async (setTrainingData: Dispatch<SetStateAction<TrainingDay[]>>) => {
+  try {
+    const res = await fetch("/api/auth/workouts/", { credentials: "include" });
+    if (!res.ok) return;
+    const workoutData = await res.json();
+    const workouts = (workoutData.workouts || []).map((w: any) => ({
+      id: w.id,
+      date: w.date,
+      type: w.status === "completed" ? "completed" : w.type === "rest" ? "rest" : "workout",
+      title: w.type.replace("_", " ").replace(/\b\w/g, (c: string) => c.toUpperCase()),
+      description: w.description,
+      duration: w.duration,
+    }));
+    setTrainingData(workouts);
+  } catch (err) {
+    console.error("Failed to load workouts:", err);
+  }
+};
+
 export function HomeScreen({ userName = "User", onLogout, theme = "dark", onToggleTheme }: HomeScreenProps) {
   const [selectedDate, setSelectedDate] = useState(new Date());
   const [menuOpen, setMenuOpen] = useState(false);
@@ -140,22 +159,7 @@ export function HomeScreen({ userName = "User", onLogout, theme = "dark", onTogg
 
   useEffect(() => {
     // Fetch workouts
-    fetch("/api/auth/workouts/", { credentials: "include" })
-      .then(res => res.json())
-      .then(data => {
-        const workouts = (data.workouts || []).map((w: any) => ({
-          id: w.id,
-          date: w.date,
-          type: w.status === "completed" ? "completed" : w.type === "rest" ? "rest" : "workout",
-          title: w.type.replace("_", " ").replace(/\b\w/g, (c: string) => c.toUpperCase()),
-          description: w.description,
-          duration: w.duration,
-        }));
-        setTrainingData(workouts);
-      })
-      .catch(() => {
-        setTrainingData([]);
-      });
+    loadWorkouts(setTrainingData).catch(() => setTrainingData([]));
 
     // Fetch profile
     fetch("/api/auth/me/", { credentials: "include" })
@@ -543,6 +547,14 @@ export function HomeScreen({ userName = "User", onLogout, theme = "dark", onTogg
                 body: JSON.stringify({ workout_id: currentWorkoutId }),
                 credentials: "include",
               });
+
+              setTrainingData((prev) =>
+                prev.map((workout) =>
+                  workout.id === currentWorkoutId
+                    ? { ...workout, type: "completed" }
+                    : workout,
+                ),
+              );
             } catch (err) {
               console.error("Failed to finish workout:", err);
             }
@@ -557,6 +569,8 @@ export function HomeScreen({ userName = "User", onLogout, theme = "dark", onTogg
           setGpsDistance(0);
           setIsPaused(false);
           setWorkoutId(null);
+
+          await loadWorkouts(setTrainingData);
         }}
       />
     );
@@ -644,7 +658,7 @@ export function HomeScreen({ userName = "User", onLogout, theme = "dark", onTogg
   }
 
   return (
-    <div className="h-screen bg-background flex flex-col">
+    <div className="h-screen bg-background flex flex-col overflow-hidden">
       {/* Header */}
       <header className="flex items-center justify-between p-4 border-b border-border shrink-0">
         <h1 className="text-2xl font-bold text-foreground">
@@ -659,45 +673,48 @@ export function HomeScreen({ userName = "User", onLogout, theme = "dark", onTogg
       </header>
 
       {/* Main content */}
-      <main className="flex-1 p-4 space-y-4 overflow-y-auto">
-        {/* Removed overflow-y-auto */}
-        {/* Two-week calendar */}
-        <TwoWeekCalendar
-          selectedDate={selectedDate}
-          onDateSelect={setSelectedDate}
-          onViewAll={() => setShowFullCalendar(true)}
-          trainingData={trainingData}
-        />
+      <main className="flex flex-1 flex-col p-4 space-y-4 overflow-hidden">
+        <div className="space-y-4">
+          {/* Two-week calendar */}
+          <TwoWeekCalendar
+            selectedDate={selectedDate}
+            onDateSelect={setSelectedDate}
+            onViewAll={() => setShowFullCalendar(true)}
+            trainingData={trainingData}
+          />
 
-        {/* Selected day's training */}
-        <TrainingCard
-          training={selectedTraining}
-          selectedDate={selectedDate}
-          mascotImage={
-            selectedTraining.type === "rest"
-              ? "/images/home-mascot.webp"
-              : undefined
-          }
-          onStartTraining={
-            selectedTraining.type === "workout" && selectedTraining.id
-              ? () => {
-                  setWorkoutId(selectedTraining.id!);
-                  setIsConnectingBluetooth(true);
-                }
-              : undefined
-          }
-          onEdit={() => handleEditWorkout(selectedDate, selectedTraining)}
-        />  
+          {/* Selected day's training */}
+          <TrainingCard
+            training={selectedTraining}
+            selectedDate={selectedDate}
+            mascotImage={
+              selectedTraining.type === "rest"
+                ? "/images/home-mascot.webp"
+                : undefined
+            }
+            onStartTraining={
+              selectedTraining.type === "workout" && selectedTraining.id
+                ? () => {
+                    setWorkoutId(selectedTraining.id!);
+                    setIsConnectingBluetooth(true);
+                  }
+                : undefined
+            }
+            onEdit={() => handleEditWorkout(selectedDate, selectedTraining)}
+          />
+        </div>
 
         {/* Chat interface */}
-        <ChatInterface
-          messages={messages}
-          onSendMessage={handleSendMessage}
-          placeholder="Ask me anything..."
-          mascotImage="/images/login-mascot.webp"
-          className="h-80"
-          showTypingIndicator={isTyping}
-        />
+        <div className="min-h-0 mb-10">
+          <ChatInterface
+            messages={messages}
+            onSendMessage={handleSendMessage}
+            placeholder="Ask me anything..."
+            mascotImage="/images/login-mascot.webp"
+            className="h-67 min-h-0"
+            showTypingIndicator={isTyping}
+          />
+        </div>
       </main>
 
       {/* Side menu overlay */}

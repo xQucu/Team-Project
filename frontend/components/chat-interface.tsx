@@ -63,7 +63,7 @@ export function ChatInterface({
   };
 
   return (
-    <div className={`flex flex-col bg-card rounded-xl ${className}`}>
+    <div className={`flex flex-col overflow-hidden bg-card rounded-xl ${className}`}>
       {/* Header */}
       <div className="px-4 py-3 border-b border-border">
         <h2 className="text-sm font-semibold tracking-wide">
@@ -72,7 +72,7 @@ export function ChatInterface({
       </div>
 
       {/* Messages */}
-      <div className="flex-1 overflow-y-auto p-4 space-y-4 chat-scrollbar min-h-[200px] max-h-[calc(100vh-180px)]">
+      <div className="flex-1 min-h-0 overflow-y-auto p-4 space-y-4 chat-scrollbar">
         {messages.map((message) => (
           <div
             key={message.id}

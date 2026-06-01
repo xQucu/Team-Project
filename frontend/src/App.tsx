@@ -89,7 +89,7 @@ export default function App() {
   };
 
   return (
-    <div className="max-w-md mx-auto min-h-screen bg-background">
+    <div className="max-w-md mx-auto h-screen overflow-hidden bg-background">
       {currentScreen === "login" && (
         <LoginScreen
           onLogin={handleLogin}
