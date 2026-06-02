@@ -110,7 +110,7 @@ Return ONLY valid JSON array, no other text. Example: [{"name": "warm-up jog", "
     const response = await fetch("/api/auth/chat/", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ 
+      body: JSON.stringify({
         message: prompt,
         history: []
       }),
@@ -124,7 +124,7 @@ Return ONLY valid JSON array, no other text. Example: [{"name": "warm-up jog", "
 
     const data = await response.json();
     let jsonStr = data.reply?.trim() || "";
-    
+
     // Extract JSON if it's wrapped in markdown code blocks
     const jsonMatch = jsonStr.match(/```(?:json)?\s*([\s\S]*?)\s*```/);
     if (jsonMatch) {
@@ -136,7 +136,7 @@ Return ONLY valid JSON array, no other text. Example: [{"name": "warm-up jog", "
 
     return parsed.map((item: any) => {
       const seconds = parseSectionTime(item.duration || "");
-      const timeStr = seconds 
+      const timeStr = seconds
         ? `${Math.floor(seconds / 60) > 0 ? `${Math.floor(seconds / 60)} min` : `${seconds} sec`}`
         : undefined;
 
@@ -209,10 +209,20 @@ export function LiveSession({
   const sectionEndTimesRef = useRef<number[]>([]);
   const nextSectionAnnouncedRef = useRef<number>(1);
   const trainingCompleteRef = useRef<boolean>(false);
+  const zone5AlertCooldownRef = useRef<number>(0);
 
   const heartRate =
     externalHeartRate !== undefined ? externalHeartRate : internalHeartRate;
-  //const heartRate = 150
+  //const heartRate = 100;
+  // const [heartRate, setHeartRate] = useState(100);
+
+  // useEffect(() => {
+  //   const interval = setInterval(() => {
+  //     setHeartRate((prev) => prev + 10);
+  //   }, 1000);
+  //   return () => clearInterval(interval);
+  // }, []);
+
   const distance = externalDistance ?? 0;
   const speed = externalSpeed ?? 0;
   const [quote] = useState(
@@ -240,7 +250,7 @@ export function LiveSession({
         console.error("Speech recognition error", event.error);
         setIsListening(false);
       };
-      
+
       recognitionRef.current.onend = () => {
         setIsListening(false);
         if (wasListeningRef.current) {
@@ -329,7 +339,7 @@ export function LiveSession({
 
     setInputText("");
 
-    const promptText = inputText + ". remove any markdown formatting from your response and reply with plain text only. Be concise."; 
+    const promptText = inputText + ". remove any markdown formatting from your response and reply with plain text only. Be concise.";
 
     try {
       const response = await fetch("/api/auth/chat/", {
@@ -446,6 +456,20 @@ export function LiveSession({
       setHasBluetooth(true);
     }
   }, [externalHeartRate]);
+
+  useEffect(() => {
+    if (heartRate <= 0 || isPaused) return;
+
+    const hrZone = getHeartRateZone(heartRate);
+    if (hrZone.zone === 5) {
+      const now = Date.now();
+      // Only alert once every 60 seconds to avoid spamming
+      if (now - zone5AlertCooldownRef.current > 60_000) {
+        zone5AlertCooldownRef.current = now;
+        speakText(`Warning! Your heart rate is ${heartRate} beats per minute. You are in Zone 5. Slow down and try to recover.`);
+      }
+    }
+  }, [heartRate, isPaused]);
 
   // Register heart rate update callback when Bluetooth connected
   useEffect(() => {
@@ -652,8 +676,8 @@ export function LiveSession({
               }
             }}
             className={`w-16 h-16 rounded-full flex items-center justify-center shadow-lg transition-all transform select-none ${
-              isListening 
-                ? "bg-red-500 scale-110 shadow-red-500/50" 
+              isListening
+                ? "bg-red-500 scale-110 shadow-red-500/50"
                 : "bg-primary hover:bg-primary/90 hover:scale-105"
             }`}
             title="Hold to listen"
