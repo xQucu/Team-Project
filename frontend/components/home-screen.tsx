@@ -6,8 +6,8 @@ import { LiveSession } from "@/components/live-session";
 import { TrainingCard } from "@/components/training-card";
 import { TwoWeekCalendar } from "@/components/two-week-calendar";
 import { BluetoothConnect } from "@/components/bluetooth-connect";
-import { ArrowLeft, LogOut, Menu, Settings, Sun, Moon, User, X } from "lucide-react";
-import { Dispatch, SetStateAction, useEffect, useMemo, useState, useRef } from "react";
+import { ArrowLeft, LogOut, Menu, Settings, Sun, Moon, User, X, Download } from "lucide-react";
+import { useEffect, useMemo, useState, useRef } from "react";
 
 interface ProfileData {
   name: string;
@@ -110,8 +110,40 @@ const loadWorkouts = async (setTrainingData: Dispatch<SetStateAction<TrainingDay
 };
 
 export function HomeScreen({ userName = "User", onLogout, theme = "dark", onToggleTheme }: HomeScreenProps) {
-  const [selectedDate, setSelectedDate] = useState(new Date());
+   const [selectedDate, setSelectedDate] = useState(new Date());
   const [menuOpen, setMenuOpen] = useState(false);
+  const [deferredPrompt, setDeferredPrompt] = useState<any>(null);
+  const [isIOS, setIsIOS] = useState(false);
+  const [isStandalone, setIsStandalone] = useState(false);
+
+  useEffect(() => {
+    const isIOSDevice = /iPad|iPhone|iPod/.test(navigator.userAgent) && !(window as any).MSStream;
+    setIsIOS(isIOSDevice);
+    
+    const isStandaloneMode = window.matchMedia('(display-mode: standalone)').matches || (navigator as any).standalone;
+    setIsStandalone(isStandaloneMode);
+
+    const handleBeforeInstallPrompt = (e: Event) => {
+      e.preventDefault();
+      setDeferredPrompt(e);
+    };
+
+    window.addEventListener("beforeinstallprompt", handleBeforeInstallPrompt);
+
+    return () => {
+      window.removeEventListener("beforeinstallprompt", handleBeforeInstallPrompt);
+    };
+  }, []);
+
+  const handleInstallClick = async () => {
+    if (!deferredPrompt) return;
+    deferredPrompt.prompt();
+    const { outcome } = await deferredPrompt.userChoice;
+    if (outcome === 'accepted') {
+      console.log('User accepted the install prompt');
+    }
+    setDeferredPrompt(null);
+  };
   const [showFullCalendar, setShowFullCalendar] = useState(false);
   const [isTraining, setIsTraining] = useState(false);
   const [isConnectingBluetooth, setIsConnectingBluetooth] = useState(false);
@@ -776,6 +808,26 @@ export function HomeScreen({ userName = "User", onLogout, theme = "dark", onTogg
               {theme === "dark" ? <Sun className="h-5 w-5" /> : <Moon className="h-5 w-5" />}
               <span>{theme === "dark" ? "Light Mode" : "Dark Mode"}</span>
             </button>
+
+            {deferredPrompt && (
+              <button 
+                onClick={handleInstallClick}
+                className="w-full flex items-center gap-3 p-3 bg-primary text-primary-foreground hover:bg-primary/90 rounded-lg transition-colors font-medium animate-pulse"
+              >
+                <Download className="h-5 w-5" />
+                <span>Install CheetahFit</span>
+              </button>
+            )}
+
+            {isIOS && !isStandalone && (
+              <div className="p-3 bg-secondary/50 border border-border rounded-lg text-xs text-muted-foreground space-y-1">
+                <div className="flex items-center gap-1.5 font-semibold text-foreground">
+                  <Download className="h-3.5 w-3.5 text-primary" />
+                  <span>Install CheetahFit</span>
+                </div>
+                <p>Tap the share button <span className="font-bold text-foreground">Share</span> and select <span className="font-bold text-foreground">"Add to Home Screen"</span>.</p>
+              </div>
+            )}
           </div>
 
           {/* Logout */}
