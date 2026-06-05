@@ -210,6 +210,7 @@ export function LiveSession({
   const nextSectionAnnouncedRef = useRef<number>(1);
   const trainingCompleteRef = useRef<boolean>(false);
   const zone5AlertCooldownRef = useRef<number>(0);
+  const lastTickRef = useRef<number | null>(null);
 
   const heartRate =
     externalHeartRate !== undefined ? externalHeartRate : internalHeartRate;
@@ -372,27 +373,50 @@ export function LiveSession({
     sendMessageRef.current = sendMessage;
   }, [sendMessage]);
 
-  // Timer effect
+  // Timer effect - use Date-based accumulation to remain accurate when tabs are throttled
   useEffect(() => {
-    if (isPaused) return;
+    if (isPaused) {
+      lastTickRef.current = null;
+      return;
+    }
 
-    const interval = setInterval(() => {
-      setElapsedSeconds((prev) => {
-        const newValue = prev + 1;
-        onElapsedChange?.(newValue);
-        return newValue;
-      });
-      if (!hasBluetooth) {
-        setInternalHeartRate((prev: number) =>
-          Math.min(
-            180,
-            Math.max(120, prev + Math.floor(Math.random() * 5) - 2),
-          ),
-        );
+    // initialize last tick
+    lastTickRef.current = Date.now();
+    let active = true;
+
+    const loop = () => {
+      if (!active) return;
+      const now = Date.now();
+      const last = lastTickRef.current ?? now;
+      const deltaMs = now - last;
+      const deltaSec = Math.floor(deltaMs / 1000);
+
+      if (deltaSec >= 1) {
+        // advance the last tick by the consumed whole seconds
+        lastTickRef.current = last + deltaSec * 1000;
+        setElapsedSeconds((prev) => {
+          const newValue = prev + deltaSec;
+          onElapsedChange?.(newValue);
+          return newValue;
+        });
+
+        if (!hasBluetooth) {
+          setInternalHeartRate((prev: number) =>
+            Math.min(180, Math.max(120, prev + Math.floor(Math.random() * 5) - 2)),
+          );
+        }
       }
-    }, 1000);
 
-    return () => clearInterval(interval);
+      // schedule next check; using 500ms gives a good balance between responsiveness and CPU
+      setTimeout(loop, 500);
+    };
+
+    loop();
+
+    return () => {
+      active = false;
+      lastTickRef.current = null;
+    };
   }, [isPaused, hasBluetooth, workoutSections, onElapsedChange]);
 
   // Compute cumulative end times for sections (seconds)

@@ -144,6 +144,13 @@ export function HomeScreen({ userName = "User", onLogout, theme = "dark", onTogg
     }
     setDeferredPrompt(null);
   };
+
+  const formatSeconds = (s?: number) => {
+    if (!s || s <= 0) return "0:00";
+    const minutes = Math.floor(s / 60);
+    const seconds = s % 60;
+    return `${minutes}:${String(seconds).padStart(2, "0")}`;
+  };
   const [showFullCalendar, setShowFullCalendar] = useState(false);
   const [isTraining, setIsTraining] = useState(false);
   const [isConnectingBluetooth, setIsConnectingBluetooth] = useState(false);
@@ -188,6 +195,12 @@ export function HomeScreen({ userName = "User", onLogout, theme = "dark", onTogg
   const [workoutId, setWorkoutId] = useState<number | null>(null);
   const dataBufferRef = useRef<any[]>([]);
   const elapsedSecondsRef = useRef(0);
+  const [finishModalOpen, setFinishModalOpen] = useState(false);
+  const [finishContext, setFinishContext] = useState<{
+    workoutId: number | null;
+    plannedSeconds: number;
+    actualSeconds: number;
+  } | null>(null);
 
   useEffect(() => {
     // Fetch workouts
@@ -381,6 +394,98 @@ export function HomeScreen({ userName = "User", onLogout, theme = "dark", onTogg
     return training;
   }, [selectedDate, trainingData]);
 
+  // Parse duration strings like "45", "45 min", "1h 30m", "01:30:00"
+  const parseDurationToSeconds = (d?: string) => {
+    if (!d) return 0;
+    const s = d.trim();
+    // hh:mm:ss or mm:ss
+    if (/^\d{1,2}:\d{2}(:\d{2})?$/.test(s)) {
+      const parts = s.split(":").map(Number);
+      if (parts.length === 3) return parts[0] * 3600 + parts[1] * 60 + parts[2];
+      return parts[0] * 60 + parts[1];
+    }
+    // formats like "1h 30m", "1 h 30 m"
+    const hourMatch = s.match(/(\d+)\s*h/);
+    const minMatch = s.match(/(\d+)\s*m/);
+    const secMatch = s.match(/(\d+)\s*s/);
+    if (hourMatch || minMatch || secMatch) {
+      const hours = hourMatch ? Number(hourMatch[1]) : 0;
+      const mins = minMatch ? Number(minMatch[1]) : 0;
+      const secs = secMatch ? Number(secMatch[1]) : 0;
+      return hours * 3600 + mins * 60 + secs;
+    }
+    // plain number => minutes
+    const num = Number(s.replace(/[^0-9.]/g, ""));
+    if (!Number.isNaN(num)) return Math.round(num * 60);
+    return 0;
+  };
+
+  // Finalize finishing workflow: save buffer and optionally mark completed
+  const finalizeFinish = async (markCompleted: boolean, currentWorkoutId: number | null) => {
+    if (dataBufferRef.current.length > 0 && currentWorkoutId) {
+      try {
+        await fetch("/api/auth/workout-data/save/", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            workout_id: currentWorkoutId,
+            data_points: dataBufferRef.current,
+          }),
+          credentials: "include",
+        });
+      } catch (err) {
+        console.error("Failed to save remaining data:", err);
+      }
+    }
+
+    if (currentWorkoutId && markCompleted) {
+      try {
+        await fetch("/api/auth/workout-data/finish/", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ workout_id: currentWorkoutId }),
+          credentials: "include",
+        });
+
+        setTrainingData((prev) =>
+          prev.map((workout) =>
+            workout.id === currentWorkoutId ? { ...workout, type: "completed" } : workout,
+          ),
+        );
+      } catch (err) {
+        console.error("Failed to finish workout:", err);
+      }
+    }
+
+    clearTrainingState();
+    dataBufferRef.current = [];
+    elapsedSecondsRef.current = 0;
+    setIsTraining(false);
+    setBluetoothHeartRate(0);
+    setRestoredElapsedSeconds(0);
+    setGpsDistance(0);
+    setIsPaused(false);
+    setWorkoutId(null);
+
+    await loadWorkouts(setTrainingData);
+  };
+
+  // Request finish - show modal if finishing early
+  const requestFinish = (currentWorkoutId: number | null) => {
+    const plannedSeconds = parseDurationToSeconds((selectedTraining as any)?.duration);
+    const actualSeconds = elapsedSecondsRef.current || 0;
+    const finishedTooEarly = plannedSeconds > 0 && actualSeconds < plannedSeconds;
+
+    if (!finishedTooEarly) {
+      // finalize immediately
+      finalizeFinish(true, currentWorkoutId);
+      return;
+    }
+
+    setFinishContext({ workoutId: currentWorkoutId, plannedSeconds, actualSeconds });
+    setFinishModalOpen(true);
+  };
+
   const handleSendMessage = async (content: string) => {
     setMessages((prev) => [
       ...prev,
@@ -520,6 +625,7 @@ export function HomeScreen({ userName = "User", onLogout, theme = "dark", onTogg
   // Show live session
   if (isTraining) {
     return (
+      <>
       <LiveSession
         workoutId={workoutId ?? undefined}
         training={selectedTraining}
@@ -552,59 +658,47 @@ export function HomeScreen({ userName = "User", onLogout, theme = "dark", onTogg
           }
         }}
         onRegisterHeartRateUpdate={(fn) => { liveSessionHeartRateRef.current = fn; }}
-        onFinish={async () => {
-          const currentWorkoutId = workoutId;
-
-          if (dataBufferRef.current.length > 0 && currentWorkoutId) {
-            try {
-              await fetch("/api/auth/workout-data/save/", {
-                method: "POST",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({
-                  workout_id: currentWorkoutId,
-                  data_points: dataBufferRef.current,
-                }),
-                credentials: "include",
-              });
-            } catch (err) {
-              console.error("Failed to save remaining data:", err);
-            }
-          }
-
-          if (currentWorkoutId) {
-            try {
-              await fetch("/api/auth/workout-data/finish/", {
-                method: "POST",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({ workout_id: currentWorkoutId }),
-                credentials: "include",
-              });
-
-              setTrainingData((prev) =>
-                prev.map((workout) =>
-                  workout.id === currentWorkoutId
-                    ? { ...workout, type: "completed" }
-                    : workout,
-                ),
-              );
-            } catch (err) {
-              console.error("Failed to finish workout:", err);
-            }
-          }
-
-          clearTrainingState();
-          dataBufferRef.current = [];
-          elapsedSecondsRef.current = 0;
-          setIsTraining(false);
-          setBluetoothHeartRate(0);
-          setRestoredElapsedSeconds(0);
-          setGpsDistance(0);
-          setIsPaused(false);
-          setWorkoutId(null);
-
-          await loadWorkouts(setTrainingData);
-        }}
+        onFinish={() => { requestFinish(workoutId); }}
       />
+
+      {finishModalOpen && finishContext && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+          <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={async () => { setFinishModalOpen(false); await finalizeFinish(false, finishContext.workoutId); }} />
+          <div className="relative z-10 w-full max-w-md rounded-3xl border border-border bg-card p-6 shadow-2xl">
+            <div className="flex items-start justify-between gap-4 mb-4">
+              <div>
+                <h2 className="text-xl font-bold">Finish workout early?</h2>
+                <p className="mt-1 text-sm text-muted-foreground">Planned: {formatSeconds(finishContext.plannedSeconds)} • Actual: {formatSeconds(finishContext.actualSeconds)}</p>
+              </div>
+            </div>
+
+            <p className="text-sm mb-4">You're finishing before the planned duration. Do you want to mark this workout as completed anyway?</p>
+
+            <div className="grid gap-3">
+              <button
+                onClick={async () => {
+                  setFinishModalOpen(false);
+                  await finalizeFinish(true, finishContext.workoutId);
+                }}
+                className="mt-2 w-full rounded-2xl bg-primary py-3 text-sm font-semibold text-primary-foreground hover:bg-primary/90 transition-all"
+              >
+                Mark as completed
+              </button>
+
+              <button
+                onClick={async () => {
+                  setFinishModalOpen(false);
+                  await finalizeFinish(false, finishContext.workoutId);
+                }}
+                className="mt-2 w-full rounded-2xl bg-secondary py-3 text-sm font-semibold text-secondary-foreground hover:bg-secondary/90 transition-all"
+              >
+                Don't mark completed
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+      </>
     );
   }
 
