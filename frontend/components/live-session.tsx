@@ -225,7 +225,7 @@ export function LiveSession({
 
   const distance = externalDistance ?? 0;
   const speed = externalSpeed ?? 0;
-  const [quote] = useState(
+  const [quote, setQuote] = useState(
     () =>
       motivationalQuotes[Math.floor(Math.random() * motivationalQuotes.length)],
   );
@@ -339,7 +339,7 @@ export function LiveSession({
 
     setInputText("");
 
-    const promptText = inputText + ". remove any markdown formatting from your response and reply with plain text only. Be concise.";
+    const promptText = inputText + ". remove any markdown formatting from your response and reply with plain text only. Do not metion anything about formatting. 2 senteces max.";
 
     try {
       const response = await fetch("/api/auth/chat/", {
@@ -360,6 +360,7 @@ export function LiveSession({
         {sender: 'assistant', content: data.reply}
       ])
       // Speak the response
+      setQuote(data.reply);
       speakText(data.reply);
     } catch (error) {
       console.error("Error sending message:", error);
