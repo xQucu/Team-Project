@@ -33,6 +33,12 @@ export function OnboardingChat({ onComplete, onBack }: OnboardingChatProps) {
   const [retryCount, setRetryCount] = useState(0);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [pickerConfig, setPickerConfig] = useState<PickerConfig | null>(null);
+  const [goalModalOpen, setGoalModalOpen] = useState(false);
+  const [goalModalValue, setGoalModalValue] = useState("Run First 5K");
+  const [experienceModalOpen, setExperienceModalOpen] = useState(false);
+  const [experienceModalValue, setExperienceModalValue] = useState("Beginner");
+  const [injuriesModalOpen, setInjuriesModalOpen] = useState(false);
+  const [injuriesModalValue, setInjuriesModalValue] = useState("");
 
   const detectPicker = (text: string): PickerConfig | null => {
     const lowerText = text.toLowerCase();
@@ -70,6 +76,58 @@ export function OnboardingChat({ onComplete, onBack }: OnboardingChatProps) {
 
     return null;
   };
+
+  const detectGoalQuestion = (text: string): boolean => {
+    const lowerText = text.toLowerCase();
+    return (
+      lowerText.includes("your goal") ||
+      lowerText.includes("what is your goal") ||
+      lowerText.includes("what's your goal") ||
+      lowerText.includes("enter your goal") ||
+      lowerText.includes("describe your goal") ||
+      lowerText.includes("goal?") ||
+      lowerText.includes("goal for")
+    );
+  };
+
+  const detectExperienceQuestion = (text: string): boolean => {
+    const lowerText = text.toLowerCase();
+    return (
+      lowerText.includes("experience level") ||
+      lowerText.includes("how experienced") ||
+      lowerText.includes("your experience") ||
+      lowerText.includes("what is your experience") ||
+      lowerText.includes("experience?") ||
+      (lowerText.includes("experience") && (lowerText.includes("beginner") || lowerText.includes("intermediate") || lowerText.includes("advanced")))
+    );
+  };
+
+  const detectInjuriesQuestion = (text: string): boolean => {
+    const lowerText = text.toLowerCase();
+    return (
+      lowerText.includes("injury") ||
+      lowerText.includes("injuries") ||
+      lowerText.includes("limitation") ||
+      lowerText.includes("limitations") ||
+      lowerText.includes("any pain") ||
+      lowerText.includes("any issues") ||
+      lowerText.includes("pain or issues")
+    );
+  };
+
+  const GOAL_OPTIONS = [
+    "Run First 5K",
+    "Improve Speed",
+    "Train for Marathon",
+    "Build Endurance",
+    "Lose Weight",
+  ];
+
+  const EXPERIENCE_OPTIONS = [
+    "Beginner",
+    "Intermediate",
+    "Advanced",
+  ];
 
   const sendChatRequest = async (message: string, hist: ChatHistoryItem[], attempt = 0): Promise<any> => {
     setErrorMessage(null);
@@ -132,7 +190,7 @@ export function OnboardingChat({ onComplete, onBack }: OnboardingChatProps) {
 
     setIsTyping(true);
     try {
-      const data = await sendChatRequest(content, history);
+      const data = await sendChatRequest(content, newHistory);
 
       let replyContent = data.reply || "";
       
@@ -156,15 +214,28 @@ export function OnboardingChat({ onComplete, onBack }: OnboardingChatProps) {
           },
         ]);
         setHistory((prev) => [...prev, { sender: "assistant" as const, content: replyContent }]);
-        
-        // Check if next question needs a picker
-        setPickerConfig(detectPicker(replyContent));
+
+        if (detectGoalQuestion(replyContent)) {
+          setGoalModalValue(GOAL_OPTIONS[0]);
+          setGoalModalOpen(true);
+          setPickerConfig(null);
+        } else if (detectExperienceQuestion(replyContent)) {
+          setExperienceModalValue(EXPERIENCE_OPTIONS[0]);
+          setExperienceModalOpen(true);
+          setPickerConfig(null);
+        } else if (detectInjuriesQuestion(replyContent)) {
+          setInjuriesModalValue("");
+          setInjuriesModalOpen(true);
+          setPickerConfig(null);
+        } else {
+          setPickerConfig(detectPicker(replyContent));
+        }
       }
 
       if (data.complete) {
         setIsComplete(true);
         setTimeout(() => {
-          onComplete(newHistory.map(h => h.content));
+          onComplete(newHistory.map((h) => h.content));
         }, 1500);
       }
     } catch (e) {
@@ -188,7 +259,19 @@ export function OnboardingChat({ onComplete, onBack }: OnboardingChatProps) {
             sender: "assistant",
             timestamp: new Date(),
           }]);
-          setPickerConfig(detectPicker(data.reply));
+
+          if (detectGoalQuestion(data.reply)) {
+            setGoalModalValue(GOAL_OPTIONS[0]);
+            setGoalModalOpen(true);
+          } else if (detectExperienceQuestion(data.reply)) {
+            setExperienceModalValue(EXPERIENCE_OPTIONS[0]);
+            setExperienceModalOpen(true);
+          } else if (detectInjuriesQuestion(data.reply)) {
+            setInjuriesModalValue("");
+            setInjuriesModalOpen(true);
+          } else {
+            setPickerConfig(detectPicker(data.reply));
+          }
         }
       } catch (e) {
         const message = e instanceof Error ? e.message : "Unexpected error";
@@ -200,9 +283,27 @@ export function OnboardingChat({ onComplete, onBack }: OnboardingChatProps) {
     return () => clearTimeout(timer);
   }, []);
 
+  const handleConfirmGoal = (goal: string) => {
+    const sanitizedGoal = goal.trim() || GOAL_OPTIONS[0];
+    setGoalModalOpen(false);
+    handleSendMessage(sanitizedGoal);
+  };
+
+  const handleConfirmExperience = (experience: string) => {
+    const sanitizedExperience = experience.trim() || EXPERIENCE_OPTIONS[0];
+    setExperienceModalOpen(false);
+    handleSendMessage(sanitizedExperience);
+  };
+
+  const handleConfirmInjuries = (injuries: string) => {
+    const sanitizedInjuries = injuries.trim() || "No injuries or limitations.";
+    setInjuriesModalOpen(false);
+    handleSendMessage(sanitizedInjuries);
+  };
+
   return (
-    <div className="min-h-screen bg-background flex flex-col">
-      <header className="flex items-center gap-4 p-4 border-b border-border">
+    <div className="h-screen bg-background flex flex-col overflow-hidden">
+      <header className="sticky top-0 z-30 flex-shrink-0 bg-background flex items-center gap-4 p-4 border-b border-border">
         {onBack && (
           <button
             onClick={onBack}
@@ -236,17 +337,147 @@ export function OnboardingChat({ onComplete, onBack }: OnboardingChatProps) {
         </div>
       )}
 
-      <div className="flex-1 flex flex-col overflow-hidden relative min-h-0">
+      <div className="flex-1 flex flex-col overflow-hidden min-h-0">
         <ChatInterface
           messages={messages}
           onSendMessage={handleSendMessage}
-          placeholder={pickerConfig ? "Use the picker below..." : "Type your answer..."}
+          placeholder={injuriesModalOpen ? "Describe your injuries or limitations..." : experienceModalOpen ? "Choose experience..." : goalModalOpen ? "Choose a goal..." : pickerConfig ? "Use the picker below..." : "Type your answer..."}
           mascotImage="/images/onboarding-mascot.webp"
-          disabled={isTyping || isComplete || !!pickerConfig}
-          className="h-full flex-1 min-h-0 rounded-none"
+          disabled={isTyping || isComplete || !!pickerConfig || goalModalOpen || experienceModalOpen || injuriesModalOpen}
+          className="flex-1 min-h-0 rounded-none"
           showTypingIndicator={isTyping}
         />
-        
+
+        {goalModalOpen && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+            <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={() => setGoalModalOpen(false)} />
+            <div className="relative z-10 w-full max-w-md rounded-3xl border border-border bg-card p-6 shadow-2xl">
+              <div className="flex items-start justify-between gap-4 mb-5">
+                <div>
+                  <h2 className="text-xl font-bold">What is your goal?</h2>
+                </div>
+              </div>
+
+              <div className="grid gap-3 mb-4">
+                {GOAL_OPTIONS.map((goal) => (
+                  <button
+                    key={goal}
+                    type="button"
+                    onClick={() => setGoalModalValue(goal)}
+                    className={`w-full rounded-2xl px-4 py-3 text-left transition ${
+                      goalModalValue === goal
+                        ? "border border-primary bg-primary/10 text-foreground"
+                        : "border border-border bg-secondary text-foreground hover:bg-secondary/90"
+                    }`}
+                  >
+                    {goal}
+                  </button>
+                ))}
+              </div>
+
+              <label className="block text-xs font-semibold uppercase tracking-wider text-muted-foreground mb-2">
+                Custom goal
+              </label>
+              <textarea
+                rows={1}
+                onChange={(e) => setGoalModalValue(e.target.value)}
+                placeholder="Type your own goal"
+                className="w-full rounded-2xl bg-secondary border-0 px-4 py-3 focus:ring-2 focus:ring-primary transition-all resize-none"
+              />
+
+              <button
+                style={{fontSize:'1.1em'}}
+                type="button"
+                onClick={() => handleConfirmGoal(goalModalValue)}
+                className="mt-5 w-full rounded-2xl bg-primary py-4 text-sm font-semibold text-primary-foreground hover:bg-primary/90 transition-all"
+              >
+                Confirm Goal
+              </button>
+            </div>
+          </div>
+        )}
+
+        {experienceModalOpen && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+            <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={() => setExperienceModalOpen(false)} />
+            <div className="relative z-10 w-full max-w-md rounded-3xl border border-border bg-card p-6 shadow-2xl">
+              <div className="flex items-start justify-between gap-4 mb-5">
+                <div>
+                  <h2 className="text-xl font-bold">Your experience level</h2>
+                </div>
+              </div>
+
+              <div className="grid gap-3 mb-4">
+                {EXPERIENCE_OPTIONS.map((level) => (
+                  <button
+                    key={level}
+                    type="button"
+                    onClick={() => setExperienceModalValue(level)}
+                    className={`w-full rounded-2xl px-4 py-3 text-left transition ${
+                      experienceModalValue === level
+                        ? "border border-primary bg-primary/10 text-foreground"
+                        : "border border-border bg-secondary text-foreground hover:bg-secondary/90"
+                    }`}
+                  >
+                    {level}
+                  </button>
+                ))}
+              </div>
+
+              <label className="block text-xs font-semibold uppercase tracking-wider text-muted-foreground mb-2">
+                Custom experience level
+              </label>
+              <textarea
+                rows={1}  
+                onChange={(e) => setExperienceModalValue(e.target.value)}
+                placeholder="Type your own experience level"
+                className="w-full rounded-2xl bg-secondary border-0 px-4 py-3 focus:ring-2 focus:ring-primary transition-all resize-none"
+              />
+
+              <button
+                type="button"
+                style={{fontSize:'1.1em'}}
+                onClick={() => handleConfirmExperience(experienceModalValue)}
+                className="mt-5 w-full rounded-2xl bg-primary py-4 text-sm font-semibold text-primary-foreground hover:bg-primary/90 transition-all"
+              >
+                Confirm Experience
+              </button>
+            </div>
+          </div>
+        )}
+
+        {injuriesModalOpen && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+            <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={() => setInjuriesModalOpen(false)} />
+            <div className="relative z-10 w-full max-w-md rounded-3xl border border-border bg-card p-6 shadow-2xl">
+              <div className="flex items-start justify-between gap-4 mb-5">
+                <div>
+                  <h2 className="text-xl font-bold">Injuries / Limitations</h2>
+                </div>
+              </div>
+              <label className="block text-xs font-semibold uppercase tracking-wider text-muted-foreground mb-2">
+                Your injuries
+              </label>
+              <textarea
+                rows={4}
+                value={injuriesModalValue}
+                onChange={(e) => setInjuriesModalValue(e.target.value)}
+                placeholder="Describe any injuries, pain, or restrictions"
+                className="w-full rounded-2xl bg-secondary border-0 px-4 py-3 focus:ring-2 focus:ring-primary transition-all resize-none"
+              />
+
+              <button
+                type="button"
+                style={{fontSize:'1.1em'}}
+                onClick={() => handleConfirmInjuries(injuriesModalValue)}
+                className="mt-5 w-full rounded-2xl bg-primary py-4 text-sm font-semibold text-primary-foreground hover:bg-primary/90 transition-all"
+              >
+                Confirm Injuries
+              </button>
+            </div>
+          </div>
+        )}
+
         {pickerConfig && !isTyping && !isComplete && (
           <WheelPicker
             min={pickerConfig.min}
