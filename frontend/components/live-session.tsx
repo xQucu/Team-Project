@@ -309,6 +309,58 @@ export function LiveSession({
   // Start/Stop Listening
   const wasListeningRef = useRef(false);
 
+  const playStartTone = useCallback(() => {
+    if (typeof window === "undefined") return;
+    const AudioContext = (window as any).AudioContext || (window as any).webkitAudioContext;
+    if (!AudioContext) return;
+
+    try {
+      const ctx = new AudioContext();
+      const osc = ctx.createOscillator();
+      const gain = ctx.createGain();
+      osc.type = "sine";
+      osc.frequency.value = 880;
+      gain.gain.value = 0.3;
+      osc.connect(gain);
+      gain.connect(ctx.destination);
+      osc.start();
+      osc.stop(ctx.currentTime + 0.15);
+      osc.onended = () => {
+        if (ctx.state !== "closed") {
+          ctx.close().catch(() => {});
+        }
+      };
+    } catch (err) {
+      console.warn("playStartTone failed", err);
+    }
+  }, []);
+
+  const playStopTone = useCallback(() => {
+    if (typeof window === "undefined") return;
+    const AudioContext = (window as any).AudioContext || (window as any).webkitAudioContext;
+    if (!AudioContext) return;
+
+    try {
+      const ctx = new AudioContext();
+      const osc = ctx.createOscillator();
+      const gain = ctx.createGain();
+      osc.type = "triangle";
+      osc.frequency.value = 440;
+      gain.gain.value = 1;
+      osc.connect(gain);
+      gain.connect(ctx.destination);
+      osc.start();
+      osc.stop(ctx.currentTime + 0.2);
+      osc.onended = () => {
+        if (ctx.state !== "closed") {
+          ctx.close().catch(() => {});
+        }
+      };
+    } catch (err) {
+      console.warn("playStopTone failed", err);
+    }
+  }, []);
+
   const startListening = useCallback(() => {
     if (!recognitionRef.current) return;
     try {
@@ -323,13 +375,23 @@ export function LiveSession({
   const stopListening = useCallback(() => {
     if (!recognitionRef.current) return;
     try {
+      playStopTone();
       recognitionRef.current.stop();
     } catch (err) {
       console.warn("stopListening failed", err);
       setIsListening(false);
       wasListeningRef.current = false;
     }
-  }, []);
+  }, [playStopTone]);
+
+  const toggleListening = useCallback(() => {
+    if (isListening) {
+      stopListening();
+    } else {
+      playStartTone();
+      startListening();
+    }
+  }, [isListening, playStartTone, startListening, stopListening]);
 
   // Send message to /chat endpoint
   const [history, setHistory] = useState<{sender: "user" | "assistant"; content: string}[]>([]);
@@ -673,42 +735,16 @@ export function LiveSession({
           </button>
 
           <button
-            onPointerDown={(e) => {
-              e.preventDefault();
-              (e.currentTarget as Element).setPointerCapture?.(e.pointerId);
-              startListening();
-            }}
-            onPointerUp={(e) => {
-              e.preventDefault();
-              try { (e.currentTarget as Element).releasePointerCapture?.(e.pointerId); } catch {}
-              stopListening();
-            }}
-            onPointerCancel={() => stopListening()}
-            onPointerLeave={() => { if (isListening) stopListening(); }}
-            onContextMenu={(e) => e.preventDefault()}
-            onTouchStart={(e) => e.preventDefault()}
-            onTouchEnd={(e) => e.preventDefault()}
-            onKeyDown={(e) => {
-              if (e.key === " " || e.key === "Enter") {
-                e.preventDefault();
-                startListening();
-              }
-            }}
-            onKeyUp={(e) => {
-              if (e.key === " " || e.key === "Enter") {
-                e.preventDefault();
-                stopListening();
-              }
-            }}
-            className={`w-16 h-16 rounded-full flex items-center justify-center shadow-lg transition-all transform select-none ${
+            onClick={toggleListening}
+            className={`w-16 h-16 rounded-full flex items-center justify-center transition-all transform select-none border border-border ${
               isListening
-                ? "bg-red-500 scale-110 shadow-red-500/50"
-                : "bg-primary hover:bg-primary/90 hover:scale-105"
+                ? "bg-primary text-primary-foreground scale-110 animate-pulse shadow-[0_0_20px_rgba(74,222,128,1)]"
+                : "bg-primary/70 text-foreground hover:bg-primary/90 hover:text-primary shadow-lg"
             }`}
-            title="Hold to listen"
+            title={isListening ? "Stop voice capture" : "Start voice capture"}
             aria-pressed={isListening}
           >
-            {isListening ? <MicOff className="h-7 w-7 text-white" /> : <Mic className="h-7 w-7 text-white" />}
+            {isListening ? <Mic className="h-7 w-7 text-white" /> : <Mic className="h-7 w-7 text-foreground" />}
           </button>
 
           <button
