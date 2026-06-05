@@ -537,7 +537,7 @@ export function LiveSession({
                   : `After this, switch to the next exercise.`;
 
                 return (
-                  <div className="bg-primary/5 rounded-xl p-3 space-y-1">
+                  <div className="bg-secondary rounded-xl p-3 space-y-1">
                     <div className="font-semibold">
                       {section.text}
                       {durationText}
@@ -633,7 +633,7 @@ export function LiveSession({
               setIsPaused(!isPaused);
               onPauseChange?.(!isPaused);
             }}
-            className="flex items-center justify-center gap-2 bg-secondary hover:bg-secondary/80 text-foreground font-semibold py-4 rounded-xl transition-colors"
+            className="flex items-center justify-center gap-2 bg-card hover:bg-secondary/80 text-foreground font-semibold py-4 rounded-xl transition-colors"
           >
             {isPaused ? (
               <>

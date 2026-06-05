@@ -222,7 +222,7 @@ export function BluetoothConnect({ onConnected, onHeartRateChange, onBack }: Blu
             {status === "error" && (
               <button
                 onClick={() => onConnected(null, 0, handleHeartRateUpdate)}
-                className="flex items-center gap-2 bg-secondary hover:bg-secondary/80 text-foreground font-semibold py-3 px-8 rounded-xl transition-colors"
+                className="flex items-center gap-2 bg-card hover:bg-secondary/80 text-foreground font-semibold py-3 px-8 rounded-xl transition-colors"
               >
                 CONTINUE WITHOUT DEVICE
               </button>
