@@ -773,8 +773,7 @@ export function HomeScreen({ userName = "User", onLogout, theme = "dark", onTogg
                 className="w-10 h-10 object-contain"
               />
               <div>
-                <p className="font-semibold text-foreground">{profileData.name || userName}</p>
-                <p className="text-xs text-muted-foreground">Premium Member</p>
+                <p className=" font-semibold text-foreground">{profileData.name || userName}</p>
               </div>
             </div>
             <button
@@ -796,10 +795,6 @@ export function HomeScreen({ userName = "User", onLogout, theme = "dark", onTogg
             >
               <User className="h-5 w-5" />
               <span>Profile</span>
-            </button>
-            <button className="w-full flex items-center gap-3 p-3 hover:bg-secondary rounded-lg transition-colors text-foreground">
-              <Settings className="h-5 w-5" />
-              <span>Settings</span>
             </button>
             <button 
               onClick={onToggleTheme}
