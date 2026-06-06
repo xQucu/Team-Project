@@ -195,11 +195,21 @@ export function HomeScreen({ userName = "User", onLogout, theme = "dark", onTogg
   const [workoutId, setWorkoutId] = useState<number | null>(null);
   const dataBufferRef = useRef<any[]>([]);
   const elapsedSecondsRef = useRef(0);
+  const heartRateHistoryRef = useRef<{ time: number; bpm: number }[]>([]);
+  const speedHistoryRef = useRef<{ time: number; kmh: number }[]>([]);
   const [finishModalOpen, setFinishModalOpen] = useState(false);
   const [finishContext, setFinishContext] = useState<{
     workoutId: number | null;
     plannedSeconds: number;
     actualSeconds: number;
+  } | null>(null);
+  const [summaryModalOpen, setSummaryModalOpen] = useState(false);
+  const [summaryData, setSummaryData] = useState<{
+    actualSeconds: number;
+    avgHeartRate: number | null;
+    avgSpeed: number | null;
+    distance: number;
+    heartRatePoints: { time: number; bpm: number }[];
   } | null>(null);
 
   useEffect(() => {
@@ -334,11 +344,18 @@ export function HomeScreen({ userName = "User", onLogout, theme = "dark", onTogg
     if (!isTraining || isPaused || !workoutId) return;
 
     const interval = setInterval(async () => {
+      const nowSeconds = elapsedSecondsRef.current;
+      const currentHeartRate = bluetoothHeartRate > 0 ? bluetoothHeartRate : null;
+      if (currentHeartRate !== null) {
+        heartRateHistoryRef.current.push({ time: nowSeconds, bpm: currentHeartRate });
+      }
+      speedHistoryRef.current.push({ time: nowSeconds, kmh: gpsSpeed });
+
       const dataPoint = {
-        elapsed_seconds: elapsedSecondsRef.current,
+        elapsed_seconds: nowSeconds,
         distance_km: gpsDistance,
         speed_kmh: gpsSpeed,
-        heart_rate: bluetoothHeartRate > 0 ? bluetoothHeartRate : null,
+        heart_rate: currentHeartRate,
         latitude: lastPositionRef.current?.lat || null,
         longitude: lastPositionRef.current?.lng || null,
       };
@@ -380,6 +397,13 @@ export function HomeScreen({ userName = "User", onLogout, theme = "dark", onTogg
     });
   }, [isTraining, gpsDistance, bluetoothDevice]);
 
+  useEffect(() => {
+    if (isTraining) {
+      heartRateHistoryRef.current = [];
+      speedHistoryRef.current = [];
+    }
+  }, [isTraining]);
+
   
 
   // Get training for selected date
@@ -393,6 +417,10 @@ export function HomeScreen({ userName = "User", onLogout, theme = "dark", onTogg
 
     return training;
   }, [selectedDate, trainingData]);
+
+  const summaryMaxHeartRate = summaryData?.heartRatePoints.length
+    ? Math.max(...summaryData.heartRatePoints.map((p) => p.bpm), 140)
+    : 140;
 
   // Parse duration strings like "45", "45 min", "1h 30m", "01:30:00"
   const parseDurationToSeconds = (d?: string) => {
@@ -457,6 +485,17 @@ export function HomeScreen({ userName = "User", onLogout, theme = "dark", onTogg
       }
     }
 
+    const average = (values: number[]) =>
+      values.length ? values.reduce((sum, value) => sum + value, 0) / values.length : null;
+
+    const summary = {
+      actualSeconds: elapsedSecondsRef.current,
+      avgHeartRate: average(heartRateHistoryRef.current.map((point) => point.bpm)),
+      avgSpeed: average(speedHistoryRef.current.map((point) => point.kmh)),
+      distance: gpsDistance,
+      heartRatePoints: [...heartRateHistoryRef.current],
+    };
+
     clearTrainingState();
     dataBufferRef.current = [];
     elapsedSecondsRef.current = 0;
@@ -466,6 +505,8 @@ export function HomeScreen({ userName = "User", onLogout, theme = "dark", onTogg
     setGpsDistance(0);
     setIsPaused(false);
     setWorkoutId(null);
+    setSummaryData(summary);
+    setSummaryModalOpen(true);
 
     await loadWorkouts(setTrainingData);
   };
@@ -685,19 +726,27 @@ export function HomeScreen({ userName = "User", onLogout, theme = "dark", onTogg
                 Mark as completed
               </button>
 
+
               <button
                 onClick={async () => {
                   setFinishModalOpen(false);
                   await finalizeFinish(false, finishContext.workoutId);
                 }}
-                className="mt-2 w-full rounded-2xl bg-secondary py-3 text-sm font-semibold text-secondary-foreground hover:bg-secondary/90 transition-all"
+                className="mt-2 w-full rounded-2xl bg-destructive/80 py-3 text-sm font-semibold text-secondary-foreground hover:bg-destructive/70 transition-all"
               >
                 Don't mark completed
+              </button>
+              <button
+                onClick={() => setFinishModalOpen(false)}
+                className="mt-2 w-full rounded-2xl bg-secondary py-3 text-sm font-semibold text-secondary-foreground hover:bg-secondary/90 transition-all"
+              >
+                Continue training
               </button>
             </div>
           </div>
         </div>
       )}
+
       </>
     );
   }
@@ -1036,6 +1085,79 @@ export function HomeScreen({ userName = "User", onLogout, theme = "dark", onTogg
             }
           }}
         />
+      )}
+
+      {summaryModalOpen && summaryData && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+          <div
+            className="absolute inset-0 bg-black/60 backdrop-blur-sm"
+            onClick={() => setSummaryModalOpen(false)}
+          />
+          <div className="relative z-10 w-full max-w-2xl rounded-3xl border border-border bg-card p-6 shadow-2xl">
+            <div className="flex items-start justify-between gap-4 mb-4">
+              <div>
+                <h2 className="text-xl font-bold">Workout summary</h2>
+                <p className="mt-1 text-sm text-muted-foreground">Finished workout data from your last session.</p>
+              </div>
+              <button
+                onClick={() => setSummaryModalOpen(false)}
+                className="text-sm text-muted-foreground hover:text-foreground"
+              >
+                Close
+              </button>
+            </div>
+
+            <div className="grid grid-cols-2 gap-3 mb-4">
+              <div className="rounded-3xl bg-secondary p-4">
+                <p className="text-xs uppercase tracking-[0.2em] text-muted-foreground mb-1">Time</p>
+                <p className="text-lg font-semibold text-foreground">{formatSeconds(summaryData.actualSeconds)}</p>
+              </div>
+              <div className="rounded-3xl bg-secondary p-4">
+                <p className="text-xs uppercase tracking-[0.2em] text-muted-foreground mb-1">Distance</p>
+                <p className="text-lg font-semibold text-foreground">{summaryData.distance.toFixed(2)} km</p>
+              </div>
+              <div className="rounded-3xl bg-secondary p-4">
+                <p className="text-xs uppercase tracking-[0.2em] text-muted-foreground mb-1">Avg Heart Rate</p>
+                <p className="text-lg font-semibold text-foreground">
+                  {summaryData.avgHeartRate !== null ? `${Math.round(summaryData.avgHeartRate)} bpm` : "--"}
+                </p>
+              </div>
+              <div className="rounded-3xl bg-secondary p-4">
+                <p className="text-xs uppercase tracking-[0.2em] text-muted-foreground mb-1">Avg Speed</p>
+                <p className="text-lg font-semibold text-foreground">
+                  {summaryData.avgSpeed !== null ? `${summaryData.avgSpeed.toFixed(1)} km/h` : "--"}
+                </p>
+              </div>
+            </div>
+
+            <div className="rounded-3xl bg-secondary p-4">
+              <div className="flex items-center justify-between mb-3">
+                <div>
+                  <p className="text-xs uppercase tracking-[0.2em] text-muted-foreground">Heart rate chart</p>
+                  <p className="text-sm text-muted-foreground">{summaryData.heartRatePoints.length} samples</p>
+                </div>
+                <p className="text-sm text-muted-foreground">Peak {Math.max(...summaryData.heartRatePoints.map((point) => point.bpm), 0)} bpm</p>
+              </div>
+              {summaryData.heartRatePoints.length > 0 ? (
+                <div className="h-40 overflow-x-auto rounded-3xl bg-background/80 p-3">
+                  <div className="flex items-end h-full gap-1 min-w-full">
+                    {summaryData.heartRatePoints.map((point, index) => (
+                      <div key={index} className="flex-1 min-w-[6px]">
+                        <div
+                          className="h-full rounded-full bg-primary"
+                          style={{ height: `${(point.bpm / summaryMaxHeartRate) * 100}%` }}
+                          title={`${Math.round(point.bpm)} bpm`}
+                        />
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              ) : (
+                <p className="text-sm text-muted-foreground">No heart rate history available for this session.</p>
+              )}
+            </div>
+          </div>
+        </div>
       )}
     </div>
   );
