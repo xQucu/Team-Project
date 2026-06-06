@@ -92,12 +92,14 @@ const buildWorkoutSpeech = (sections: WorkoutSection[]) => {
     .join(". ");
 };
 
-const buildWorkoutSections = async (description: string): Promise<WorkoutSection[]> => {
-  if (!description.trim()) return [];
+const buildWorkoutSections = async (description: string, duration: string, title: string): Promise<WorkoutSection[]> => {
 
+  console.log("Parsing workout description with AI:", { title, duration, description });
   const prompt = `Parse this workout description into distinct exercise phases. For each phase, extract the exercise name/activity and duration.
 
-Workout Description: "${description}"
+  Workout Title: "${title}"
+  Whole Workout Duration: "${duration}"
+  Workout Description: "${description}"
 
 Return a JSON array with objects having:
 - "name": the exercise name or activity (string)
@@ -280,7 +282,7 @@ export function LiveSession({
         console.log("Live session mounted with props:", { propWorkoutId, propTraining });
         // If parent provided `training`, use it (construction similar to home-screen)
         if (propTraining) {
-          const sections = await buildWorkoutSections(propTraining.description || propTraining.title || "");
+          const sections = await buildWorkoutSections(propTraining.description || "", propTraining.duration || "", propTraining.title || "");
           // persist sections to state so other effects can use them
           setWorkoutSections(sections);
           console.log("Live session workoutSections initialized:", sections);
@@ -289,6 +291,7 @@ export function LiveSession({
           ? `Today's workout: ${buildWorkoutSpeech(sections)}`
           : "You have a workout scheduled for today.";
           console.log("Speaking workout plan:", textToSpeak);
+          setQuote(textToSpeak);
           setIsSpeaking(true);
           speakText(
             textToSpeak,
@@ -402,7 +405,7 @@ export function LiveSession({
 
     setInputText("");
 
-    const promptText = inputText + ". remove any markdown formatting from your response and reply with plain text only. Do not metion anything about formatting. 2 senteces max.";
+    const promptText = inputText + ". user is now during workout focus your answers around this specific context. remove any markdown formatting from your response and reply with plain text only. Do not metion anything about formatting. 2 senteces max.";
 
     try {
       const response = await fetch("/api/auth/chat/", {
