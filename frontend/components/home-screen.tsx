@@ -90,6 +90,36 @@ const clearTrainingState = () => {
   localStorage.removeItem(TRAINING_STORAGE_KEY);
 };
 
+const generateHeartRatePath = (points: { time: number; bpm: number }[], width: number, height: number) => {
+  if (points.length === 0) return "";
+  if (points.length === 1) return `M 0 ${height / 2} L ${width} ${height / 2}`;
+  const bpms = points.map(p => p.bpm);
+  const minBpm = Math.max(30, Math.min(...bpms) - 10);
+  const maxBpm = Math.max(minBpm + 20, Math.max(...bpms) + 10);
+  
+  return points.map((p, index) => {
+    const x = (index / (points.length - 1)) * width;
+    const y = height - 10 - ((p.bpm - minBpm) / (maxBpm - minBpm)) * (height - 20);
+    return `${index === 0 ? 'M' : 'L'} ${x.toFixed(1)} ${y.toFixed(1)}`;
+  }).join(' ');
+};
+
+const generateHeartRateAreaPath = (points: { time: number; bpm: number }[], width: number, height: number) => {
+  if (points.length === 0) return "";
+  if (points.length === 1) return `M 0 ${height / 2} L ${width} ${height / 2} L ${width} ${height - 5} L 0 ${height - 5} Z`;
+  const bpms = points.map(p => p.bpm);
+  const minBpm = Math.max(30, Math.min(...bpms) - 10);
+  const maxBpm = Math.max(minBpm + 20, Math.max(...bpms) + 10);
+  
+  const linePath = points.map((p, index) => {
+    const x = (index / (points.length - 1)) * width;
+    const y = height - 10 - ((p.bpm - minBpm) / (maxBpm - minBpm)) * (height - 20);
+    return `${index === 0 ? 'M' : 'L'} ${x.toFixed(1)} ${y.toFixed(1)}`;
+  }).join(' ');
+
+  return `${linePath} L ${width} ${height - 5} L 0 ${height - 5} Z`;
+};
+
 const loadWorkouts = async (setTrainingData: Dispatch<SetStateAction<TrainingDay[]>>) => {
   try {
     const res = await fetch("/api/auth/workouts/", { credentials: "include" });
@@ -500,7 +530,9 @@ export function HomeScreen({ userName = "User", onLogout, theme = "dark", onTogg
     const summary = {
       actualSeconds: elapsedSecondsRef.current,
       avgHeartRate: average(heartRateHistoryRef.current.map((point) => point.bpm)),
-      avgSpeed: average(speedHistoryRef.current.map((point) => point.kmh)),
+      avgSpeed: gpsDistance > 0 && elapsedSecondsRef.current > 0
+        ? (gpsDistance * 3600) / elapsedSecondsRef.current
+        : 0,
       distance: gpsDistance,
       heartRatePoints: [...heartRateHistoryRef.current],
       aiSummary: serverAiSummary,
@@ -1183,18 +1215,52 @@ export function HomeScreen({ userName = "User", onLogout, theme = "dark", onTogg
                 <p className="text-sm text-muted-foreground">Peak {Math.max(...summaryData.heartRatePoints.map((point) => point.bpm), 0)} bpm</p>
               </div>
               {summaryData.heartRatePoints.length > 0 ? (
-                <div className="h-40 overflow-x-auto rounded-3xl bg-background/80 p-3">
-                  <div className="flex items-end h-full gap-1 min-w-full">
-                    {summaryData.heartRatePoints.map((point, index) => (
-                      <div key={index} className="flex-1 min-w-[6px] h-full flex items-end">
-                        <div
-                          className="w-full rounded-full bg-primary"
-                          style={{ height: `${(point.bpm / summaryMaxHeartRate) * 100}%` }}
-                          title={`${Math.round(point.bpm)} bpm`}
-                        />
-                      </div>
-                    ))}
-                  </div>
+                <div className="h-40 rounded-3xl bg-background/80 p-4 relative overflow-hidden">
+                  <svg viewBox="0 0 600 120" className="w-full h-full overflow-visible" preserveAspectRatio="none">
+                    <defs>
+                      <linearGradient id="chartGradient" x1="0" y1="0" x2="0" y2="1">
+                        <stop offset="0%" stopColor="var(--primary)" stopOpacity="0.4" />
+                        <stop offset="100%" stopColor="var(--primary)" stopOpacity="0" />
+                      </linearGradient>
+                    </defs>
+                    
+                    {/* Area fill under the line */}
+                    <path
+                      d={generateHeartRateAreaPath(summaryData.heartRatePoints, 600, 120)}
+                      fill="url(#chartGradient)"
+                    />
+                    
+                    {/* Stroke line */}
+                    <path
+                      d={generateHeartRatePath(summaryData.heartRatePoints, 600, 120)}
+                      fill="none"
+                      stroke="var(--primary)"
+                      strokeWidth="3"
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                    />
+
+                    {/* Peak heart rate glowing circle */}
+                    {(() => {
+                      const bpms = summaryData.heartRatePoints.map(p => p.bpm);
+                      const maxBpm = Math.max(...bpms, 0);
+                      const maxIndex = summaryData.heartRatePoints.findIndex(p => p.bpm === maxBpm);
+                      if (maxIndex === -1) return null;
+                      
+                      const minVal = Math.max(30, Math.min(...bpms) - 10);
+                      const maxVal = Math.max(minVal + 20, maxBpm + 10);
+                      
+                      const x = (maxIndex / (summaryData.heartRatePoints.length - 1)) * 600;
+                      const y = 120 - 10 - ((maxBpm - minVal) / (maxVal - minVal)) * (120 - 20);
+                      
+                      return (
+                        <g>
+                          <circle cx={x} cy={y} r="6" fill="var(--primary)" className="animate-ping" style={{ transformOrigin: `${x}px ${y}px` }} />
+                          <circle cx={x} cy={y} r="4" fill="var(--primary)" stroke="var(--card)" strokeWidth="1.5" />
+                        </g>
+                      );
+                    })()}
+                  </svg>
                 </div>
               ) : (
                 <p className="text-sm text-muted-foreground">No heart rate history available for this session.</p>

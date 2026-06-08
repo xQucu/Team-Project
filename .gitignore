@@ -36,3 +36,6 @@ dist-ssr
 # Virtual environment
 /backend/venv/
 /backend/users/migrations/__pycache__
+
+*.key
+*.crt

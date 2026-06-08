@@ -438,6 +438,17 @@ export function LiveSession({
     sendMessageRef.current = sendMessage;
   }, [sendMessage]);
 
+  const onElapsedChangeRef = useRef(onElapsedChange);
+  const hasBluetoothRef = useRef(hasBluetooth);
+
+  useEffect(() => {
+    onElapsedChangeRef.current = onElapsedChange;
+  }, [onElapsedChange]);
+
+  useEffect(() => {
+    hasBluetoothRef.current = hasBluetooth;
+  }, [hasBluetooth]);
+
   // Timer effect - use Date-based accumulation to remain accurate when tabs are throttled
   useEffect(() => {
     if (isPaused) {
@@ -461,11 +472,11 @@ export function LiveSession({
         lastTickRef.current = last + deltaSec * 1000;
         setElapsedSeconds((prev) => {
           const newValue = prev + deltaSec;
-          onElapsedChange?.(newValue);
+          onElapsedChangeRef.current?.(newValue);
           return newValue;
         });
 
-        if (!hasBluetooth) {
+        if (!hasBluetoothRef.current) {
           setInternalHeartRate((prev: number) =>
             Math.min(180, Math.max(120, prev + Math.floor(Math.random() * 5) - 2)),
           );
@@ -482,7 +493,7 @@ export function LiveSession({
       active = false;
       lastTickRef.current = null;
     };
-  }, [isPaused, hasBluetooth, workoutSections, onElapsedChange]);
+  }, [isPaused]);
 
   // Compute cumulative end times for sections (seconds)
   useEffect(() => {

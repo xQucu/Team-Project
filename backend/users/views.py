@@ -183,8 +183,7 @@ def finish_workout(request):
     avg_heart_rate = int(sum(heart_rates) / len(heart_rates)) if heart_rates else None
     max_heart_rate = max(heart_rates) if heart_rates else None
     
-    speeds = [float(p.speed_kmh) for p in data_points if p.speed_kmh]
-    avg_speed = sum(speeds) / len(speeds) if speeds else None
+    avg_speed = (total_distance * 3600.0) / total_duration if total_duration > 0 else 0.0
     
     workout.status = "completed"
     workout.completed_at = date.today()
