@@ -534,6 +534,7 @@ export function LiveSession({
         console.log("Section changed ->", idx, section.text);
         // speak the section name
         speakText(announcement);
+        setQuote(announcement);
       } catch (err) {
         console.error("Error announcing section change", err);
       }
@@ -545,6 +546,7 @@ export function LiveSession({
       try {
         console.log("Training complete");
         speakText("Training complete. Great job!");
+        setQuote("Training complete. Great job!");
       } catch (err) {
         console.error("Error announcing training completion", err);
       }
@@ -567,7 +569,9 @@ export function LiveSession({
       // Only alert once every 60 seconds to avoid spamming
       if (now - zone5AlertCooldownRef.current > 60_000) {
         zone5AlertCooldownRef.current = now;
-        speakText(`Warning! Your heart rate is ${heartRate} beats per minute. You are in Zone 5. Slow down and try to recover.`);
+        const warningText = `Warning! Your heart rate is ${heartRate} beats per minute. You are in Zone 5. Slow down and try to recover.`;
+        speakText(warningText);
+        setQuote(warningText);
       }
     }
   }, [heartRate, isPaused]);
