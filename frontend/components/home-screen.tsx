@@ -210,6 +210,7 @@ export function HomeScreen({ userName = "User", onLogout, theme = "dark", onTogg
     avgSpeed: number | null;
     distance: number;
     heartRatePoints: { time: number; bpm: number }[];
+    aiSummary?: string;
   } | null>(null);
 
   useEffect(() => {
@@ -466,14 +467,22 @@ export function HomeScreen({ userName = "User", onLogout, theme = "dark", onTogg
       }
     }
 
+    let serverAiSummary = undefined;
     if (currentWorkoutId && markCompleted) {
       try {
-        await fetch("/api/auth/workout-data/finish/", {
+        const res = await fetch("/api/auth/workout-data/finish/", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ workout_id: currentWorkoutId }),
           credentials: "include",
         });
+
+        if (res.ok) {
+          const resData = await res.json();
+          if (resData.summary && resData.summary.ai_summary) {
+            serverAiSummary = resData.summary.ai_summary;
+          }
+        }
 
         setTrainingData((prev) =>
           prev.map((workout) =>
@@ -494,6 +503,7 @@ export function HomeScreen({ userName = "User", onLogout, theme = "dark", onTogg
       avgSpeed: average(speedHistoryRef.current.map((point) => point.kmh)),
       distance: gpsDistance,
       heartRatePoints: [...heartRateHistoryRef.current],
+      aiSummary: serverAiSummary,
     };
 
     clearTrainingState();
@@ -781,17 +791,32 @@ export function HomeScreen({ userName = "User", onLogout, theme = "dark", onTogg
     );
   }
 
-  // Show full calendar
-  if (showFullCalendar) {
-    return (
-      <FullCalendar
-        onBack={() => setShowFullCalendar(false)}
-        onSelectDate={handleDateSelectFromCalendar}
-        onEditWorkout={handleEditWorkout}
-        trainingData={trainingData}
-      />
-    );
-  }
+  const handleViewSummary = async (workoutId: number) => {
+    try {
+      const res = await fetch(`/api/auth/workout-data/${workoutId}/`, { credentials: "include" });
+      if (!res.ok) return;
+      const data = await res.json();
+      const workout = data.workout;
+      const points = data.data_points || [];
+
+      setSummaryData({
+        actualSeconds: workout.total_duration_seconds || 0,
+        avgHeartRate: workout.avg_heart_rate,
+        avgSpeed: workout.avg_speed_kmh,
+        distance: workout.total_distance_km || 0,
+        heartRatePoints: points
+          .map((p: any) => ({
+            time: p.elapsed_seconds,
+            bpm: p.heart_rate || 0,
+          }))
+          .filter((p: any) => p.bpm > 0),
+        aiSummary: workout.ai_summary || undefined,
+      });
+      setSummaryModalOpen(true);
+    } catch (err) {
+      console.error("Failed to load workout summary:", err);
+    }
+  };
 
   // Show chat fullscreen
   if (chatFullscreen) {
@@ -834,63 +859,76 @@ export function HomeScreen({ userName = "User", onLogout, theme = "dark", onTogg
 
   return (
     <div className="h-screen bg-background flex flex-col overflow-hidden">
-      {/* Header */}
-      <header className="flex items-center justify-between p-4 border-b border-border shrink-0">
-        <h1 className="text-2xl font-bold text-foreground">
-          Cheetah<span className="text-primary">Fit</span>
-        </h1>
-        <button
-          onClick={() => setMenuOpen(true)}
-          className="p-2 hover:bg-secondary rounded-lg transition-colors"
-        >
-          <Menu className="h-6 w-6 text-primary" />
-        </button>
-      </header>
+      {showFullCalendar ? (
+        <FullCalendar
+          onBack={() => setShowFullCalendar(false)}
+          onSelectDate={handleDateSelectFromCalendar}
+          onEditWorkout={handleEditWorkout}
+          onViewSummary={handleViewSummary}
+          trainingData={trainingData}
+        />
+      ) : (
+        <>
+          {/* Header */}
+          <header className="flex items-center justify-between p-4 border-b border-border shrink-0">
+            <h1 className="text-2xl font-bold text-foreground">
+              Cheetah<span className="text-primary">Fit</span>
+            </h1>
+            <button
+              onClick={() => setMenuOpen(true)}
+              className="p-2 hover:bg-secondary rounded-lg transition-colors"
+            >
+              <Menu className="h-6 w-6 text-primary" />
+            </button>
+          </header>
 
-      {/* Main content */}
-      <main className="flex flex-1 flex-col p-4 space-y-4 overflow-hidden">
-        <div className="space-y-4">
-          {/* Two-week calendar */}
-          <TwoWeekCalendar
-            selectedDate={selectedDate}
-            onDateSelect={setSelectedDate}
-            onViewAll={() => setShowFullCalendar(true)}
-            trainingData={trainingData}
-          />
+          {/* Main content */}
+          <main className="flex flex-1 flex-col p-4 space-y-4 overflow-hidden">
+            <div className="space-y-4">
+              {/* Two-week calendar */}
+              <TwoWeekCalendar
+                selectedDate={selectedDate}
+                onDateSelect={setSelectedDate}
+                onViewAll={() => setShowFullCalendar(true)}
+                trainingData={trainingData}
+              />
 
-          {/* Selected day's training */}
-          <TrainingCard
-            training={selectedTraining}
-            selectedDate={selectedDate}
-            mascotImage={
-              selectedTraining.type === "rest"
-                ? "/images/home-mascot.webp"
-                : undefined
-            }
-            onStartTraining={
-              selectedTraining.type === "workout" && selectedTraining.id
-                ? () => {
-                    setWorkoutId(selectedTraining.id!);
-                    setIsConnectingBluetooth(true);
-                  }
-                : undefined
-            }
-            onEdit={() => handleEditWorkout(selectedDate, selectedTraining)}
-          />
-        </div>
+              {/* Selected day's training */}
+              <TrainingCard
+                training={selectedTraining}
+                selectedDate={selectedDate}
+                mascotImage={
+                  selectedTraining.type === "rest"
+                    ? "/images/home-mascot.webp"
+                    : undefined
+                }
+                onStartTraining={
+                  selectedTraining.type === "workout" && selectedTraining.id
+                    ? () => {
+                        setWorkoutId(selectedTraining.id!);
+                        setIsConnectingBluetooth(true);
+                      }
+                    : undefined
+                }
+                onEdit={() => handleEditWorkout(selectedDate, selectedTraining)}
+                onViewSummary={handleViewSummary}
+              />
+            </div>
 
-        {/* Chat interface */}
-        <div className="min-h-0 mb-10">
-          <ChatInterface
-            messages={messages}
-            onSendMessage={handleSendMessage}
-            placeholder="Ask me anything..."
-            mascotImage="/images/login-mascot.webp"
-            className="h-67 min-h-0"
-            showTypingIndicator={isTyping}
-          />
-        </div>
-      </main>
+            {/* Chat interface */}
+            <div className="min-h-0 mb-10">
+              <ChatInterface
+                messages={messages}
+                onSendMessage={handleSendMessage}
+                placeholder="Ask me anything..."
+                mascotImage="/images/login-mascot.webp"
+                className="h-67 min-h-0"
+                showTypingIndicator={isTyping}
+              />
+            </div>
+          </main>
+        </>
+      )}
 
       {/* Side menu overlay */}
       {menuOpen && (
@@ -1093,15 +1131,15 @@ export function HomeScreen({ userName = "User", onLogout, theme = "dark", onTogg
             className="absolute inset-0 bg-black/60 backdrop-blur-sm"
             onClick={() => setSummaryModalOpen(false)}
           />
-          <div className="relative z-10 w-full max-w-2xl rounded-3xl border border-border bg-card p-6 shadow-2xl">
+          <div className="relative z-10 w-full max-w-2xl rounded-3xl border border-border bg-card p-6 shadow-2xl max-h-[90vh] overflow-y-auto">
             <div className="flex items-start justify-between gap-4 mb-4">
               <div>
                 <h2 className="text-xl font-bold">Workout summary</h2>
-                <p className="mt-1 text-sm text-muted-foreground">Finished workout data from your last session.</p>
+                <p className="mt-1 text-sm text-muted-foreground">Finished workout data and feedback.</p>
               </div>
               <button
                 onClick={() => setSummaryModalOpen(false)}
-                className="text-sm text-muted-foreground hover:text-foreground"
+                className="text-sm text-muted-foreground hover:text-foreground cursor-pointer"
               >
                 Close
               </button>
@@ -1130,11 +1168,17 @@ export function HomeScreen({ userName = "User", onLogout, theme = "dark", onTogg
               </div>
             </div>
 
+            {summaryData.aiSummary && (
+              <div className="rounded-3xl bg-primary/10 border border-primary/20 p-4 mb-4">
+                <p className="text-xs uppercase tracking-[0.2em] text-primary font-bold mb-1">AI Coach Summary</p>
+                <p className="text-sm text-foreground leading-relaxed italic">"{summaryData.aiSummary}"</p>
+              </div>
+            )}
+
             <div className="rounded-3xl bg-secondary p-4">
               <div className="flex items-center justify-between mb-3">
                 <div>
                   <p className="text-xs uppercase tracking-[0.2em] text-muted-foreground">Heart rate chart</p>
-                  <p className="text-sm text-muted-foreground">{summaryData.heartRatePoints.length} samples</p>
                 </div>
                 <p className="text-sm text-muted-foreground">Peak {Math.max(...summaryData.heartRatePoints.map((point) => point.bpm), 0)} bpm</p>
               </div>
@@ -1142,9 +1186,9 @@ export function HomeScreen({ userName = "User", onLogout, theme = "dark", onTogg
                 <div className="h-40 overflow-x-auto rounded-3xl bg-background/80 p-3">
                   <div className="flex items-end h-full gap-1 min-w-full">
                     {summaryData.heartRatePoints.map((point, index) => (
-                      <div key={index} className="flex-1 min-w-[6px]">
+                      <div key={index} className="flex-1 min-w-[6px] h-full flex items-end">
                         <div
-                          className="h-full rounded-full bg-primary"
+                          className="w-full rounded-full bg-primary"
                           style={{ height: `${(point.bpm / summaryMaxHeartRate) * 100}%` }}
                           title={`${Math.round(point.bpm)} bpm`}
                         />

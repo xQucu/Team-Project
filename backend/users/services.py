@@ -92,9 +92,9 @@ def save_workout_sessions(user: User, plan_data: dict) -> int:
 
 
 def get_user_workouts(user: User, from_date: date = None):
-    """Get workouts for a user starting from a given date."""
+    """Get workouts for a user starting from a given date. If from_date is None, returns all workouts."""
     if from_date is None:
-        from_date = date.today()
+        return WorkoutSession.objects.filter(user=user).order_by("date")
     
     return WorkoutSession.objects.filter(
         user=user,

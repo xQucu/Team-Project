@@ -1,7 +1,8 @@
-import { Check, Clock, Footprints, Moon, Play } from "lucide-react";
+import { Check, Clock, Footprints, Moon, Play, Activity } from "lucide-react";
 import ReactMarkdown from "react-markdown";
 
 interface TrainingInfo {
+  id?: number;
   type: "workout" | "rest" | "none" | "completed";
   title?: string;
   description?: string;
@@ -15,6 +16,7 @@ interface TrainingCardProps {
   selectedDate?: Date;
   onStartTraining?: () => void;
   onEdit?: () => void;
+  onViewSummary?: (workoutId: number) => void;
 }
 
 export function TrainingCard({
@@ -23,6 +25,7 @@ export function TrainingCard({
   selectedDate,
   onStartTraining,
   onEdit,
+  onViewSummary,
 }: TrainingCardProps) {
   const isToday = selectedDate
     ? selectedDate.toDateString() === new Date().toDateString()
@@ -125,6 +128,15 @@ export function TrainingCard({
               ))}
             </ul>
           </div>
+        )}
+        {onViewSummary && training.id && (
+          <button
+            onClick={() => onViewSummary(training.id!)}
+            className="w-full mt-4 flex items-center justify-center gap-2 bg-primary hover:bg-primary/90 text-primary-foreground font-semibold py-3 rounded-xl transition-all shadow-md shadow-primary/20 cursor-pointer"
+          >
+            <Activity className="h-5 w-5 animate-pulse" />
+            View Summary
+          </button>
         )}
       </div>
     );

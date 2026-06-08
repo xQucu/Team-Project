@@ -104,8 +104,7 @@ def workouts(request):
     if not request.user.is_authenticated:
         return JsonResponse({"error": "Not authenticated"}, status=401)
 
-    today = date.today()
-    workouts_qs = get_user_workouts(request.user, today)
+    workouts_qs = get_user_workouts(request.user, None)
 
     workouts_list = [format_workout_for_api(w) for w in workouts_qs]
 
@@ -251,7 +250,6 @@ def format_duration(seconds):
     return f"{mins}:{secs:02d}"
 
 
-@require_POST
 def get_workout_data(request, workout_id):
     if not request.user.is_authenticated:
         return JsonResponse({"error": "Not authenticated"}, status=401)

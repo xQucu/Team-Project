@@ -22,6 +22,7 @@ interface FullCalendarProps {
   onBack: () => void;
   onSelectDate: (date: Date) => void;
   onEditWorkout?: (date: Date, training?: TrainingDay) => void;
+  onViewSummary?: (workoutId: number) => void;
   trainingData: TrainingDay[];
 }
 
@@ -29,6 +30,7 @@ export function FullCalendar({
   onBack,
   onSelectDate,
   onEditWorkout,
+  onViewSummary,
   trainingData,
 }: FullCalendarProps) {
   const [currentMonth, setCurrentMonth] = useState(new Date());
@@ -233,6 +235,7 @@ const formatDateKey = (date: Date) => {
                   ? () => onEditWorkout(selectedDate, getTrainingForDate(selectedDate))
                   : undefined
               }
+              onViewSummary={onViewSummary}
             />
           </div>
         )}
